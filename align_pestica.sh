@@ -3,8 +3,8 @@
 AFNI_BYTEORDER=LSB_FIRST
 export AFNI_BYTEORDER 
 
-PDIR='/home/fsluser/Documents/pestica4/'
-SDIR='/home/fsluser/Documents/pestica4/slomoco/'
+PDIR='/home/fsluser/Documents/rs_proc/ext/pestica4/'
+SDIR='/home/fsluser/Documents/rs_proc/ext/pestica4/slomoco/'
 
 OUTDIR=$1
 FNAME=$2

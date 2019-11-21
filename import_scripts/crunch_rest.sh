@@ -11,6 +11,7 @@
 # [OPTIONAL]
 #
 # rev_phase.nii  -> 4D EPI acquired with reverse phase [for fieldmap correction]
+# TODO CORRIGIR!
 SUB=$1
 OUTDIR=$2
 	

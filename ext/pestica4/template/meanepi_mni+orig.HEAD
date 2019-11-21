@@ -1,0 +1,161 @@
+
+type = string-attribute
+name = HISTORY_NOTE
+count = 2520
+'[ebeall@pub3: Fri Nov 19 12:27:10 2010] 3dcopy /mnt/autofs/netScratch/ebeall/pestica_afni_v1_1/meanepi_mni.hdr /mnt/autofs/netScratch/ebeall/pestica_afni_v1_2/meanepi_mni.nii\n[fsluser@localhost.localdomain: Fri Jun 14 15:22:01 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni.nii\n[fsluser@localhost.localdomain: Fri Jun 14 15:23:59 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni.nii\n[fsluser@localhost.localdomain: Fri Jun 14 15:25:59 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni.nii\n[fsluser@localhost.localdomain: Fri Jun 14 15:26:51 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni.nii\n[fsluser@localhost.localdomain: Fri Jun 14 15:28:16 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni.nii\n[fsluser@localhost.localdomain: Fri Jun 14 15:34:11 2019] {AFNI_19.0.22:linux_openmp_64} 3dcopy /home/fsluser/Documents/pestica4/template/meanepi_mni.nii /home/fsluser/Documents/pestica4/template/meanepi_mni+orig\n[fsluser@localhost.localdomain: Fri Jun 14 15:34:11 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni+orig\n[fsluser@localhost.localdomain: Fri Jun 14 15:39:41 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni+orig\n[fsluser@localhost.localdomain: Fri Jun 14 15:42:04 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni+orig\n[fsluser@localhost.localdomain: Fri Jun 14 15:42:53 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni+orig\n[fsluser@localhost.localdomain: Fri Jun 14 15:44:18 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni+orig\n[fsluser@localhost.localdomain: Fri Jun 14 15:44:50 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni+orig\n[fsluser@localhost.localdomain: Fri Jun 14 15:54:58 2019] {AFNI_19.0.22:linux_openmp_64} 3drefit -byteorder MSB_FIRST /home/fsluser/Documents/pestica4/template/meanepi_mni+orig~
+
+type = string-attribute
+name = TYPESTRING
+count = 15
+'3DIM_HEAD_ANAT~
+
+type = string-attribute
+name = IDCODE_STRING
+count = 27
+'AFN_Rhgq4WAzWg1iSLB1S4i8jg~
+
+type = string-attribute
+name = IDCODE_DATE
+count = 25
+'Fri Jun 14 15:34:11 2019~
+
+type = integer-attribute
+name = SCENE_DATA
+count = 8
+ 0 11 0 -999 -999
+ -999 -999 -999
+
+type = string-attribute
+name = LABEL_1
+count = 5
+'zyxt~
+
+type = string-attribute
+name = LABEL_2
+count = 5
+'zyxt~
+
+type = string-attribute
+name = DATASET_NAME
+count = 5
+'zyxt~
+
+type = integer-attribute
+name = ORIENT_SPECIFIC
+count = 3
+ 0 3 4
+
+type  = float-attribute
+name  = ORIGIN
+count = 3
+      -73.50336      -93.00266          -73.5
+
+type  = float-attribute
+name  = DELTA
+count = 3
+      0.9932886      0.9946808              1
+
+type  = float-attribute
+name  = IJK_TO_DICOM
+count = 12
+      0.9932886              0              0      -73.50336              0
+      0.9946808              0      -93.00266              0              0
+              1          -73.5
+
+type  = float-attribute
+name  = IJK_TO_DICOM_REAL
+count = 12
+      0.9932886              0              0      -73.50336              0
+      0.9946808              0      -93.00266              0              0
+              1          -73.5
+
+type  = float-attribute
+name  = MARKS_XYZ
+count = 30
+        -999999        -999999        -999999        -999999        -999999
+        -999999        -999999        -999999        -999999        -999999
+        -999999        -999999        -999999        -999999        -999999
+        -999999        -999999        -999999        -999999        -999999
+        -999999        -999999        -999999        -999999        -999999
+        -999999        -999999        -999999        -999999        -999999
+
+type = string-attribute
+name = MARKS_LAB
+count = 200
+'AC superior edge~~~~AC posterior margin~PC inferior edge~~~~First mid-sag pt~~~~Another mid-sag pt~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+type = string-attribute
+name = MARKS_HELP
+count = 2560
+'This is the uppermost point
+on the anterior commisure,
+in the mid-sagittal plane.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~This is the rearmost point
+on the anterior commisure,
+in the mid-sagittal plane.
+[Just a couple mm behind and
+ below the AC superior edge.]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~This is the bottommost point
+on the posterior commissure,
+in the mid-sagittal plane.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~You must also specify two other points in the
+mid-sagittal plane, ABOVE the corpus callosum
+(i.e., in the longitudinal fissure).  These
+points are needed to define the vertical plane.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~You must also specify two other points in the
+mid-sagittal plane, ABOVE the corpus callosum
+(i.e., in the longitudinal fissure).  These
+points are needed to define the vertical plane.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+type = integer-attribute
+name = MARKS_FLAGS
+count = 8
+ 1 1 0 0 0
+ 0 0 0
+
+type  = float-attribute
+name  = BRICK_STATS
+count = 2
+       164.6723       18267.44
+
+type = integer-attribute
+name = DATASET_RANK
+count = 8
+ 3 1 0 0 0
+ 0 0 0
+
+type = integer-attribute
+name = DATASET_DIMENSIONS
+count = 5
+ 149 188 148 0 0
+
+type = integer-attribute
+name = BRICK_TYPES
+count = 1
+ 3
+
+type  = float-attribute
+name  = BRICK_FLOAT_FACS
+count = 1
+              0
+
+type = string-attribute
+name = TEMPLATE_SPACE
+count = 5
+'ORIG~
+
+type = integer-attribute
+name = INT_CMAP
+count = 1
+ 0
+
+type = string-attribute
+name = BYTEORDER_STRING
+count = 10
+'MSB_FIRST~
+
+type = string-attribute
+name = BRICK_LABS
+count = 3
+'#0~
+
+type = string-attribute
+name = BRICK_KEYWORDS
+count = 1
+'~

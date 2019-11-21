@@ -18,5 +18,5 @@ outFile = args.out_path
 
 # Load a nifti as 3d numpy image [H, W, D]
 img = nib.load(img_path)
-print(img.get_fdata().shape)
+
 nib.save(img, outFile)

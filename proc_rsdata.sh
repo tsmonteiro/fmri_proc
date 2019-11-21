@@ -1,11 +1,12 @@
 #!/bin/bash
 # Clear terminal screen
-printf "\033c"
+#printf "\033c"
 
 SUB=$1
 CONFIG=$2 #/home/fsluser/Documents/rs_proc/conf_files/rep_impact_belgium.conf
+BLOCK=$3
 
-
+QCDIR='/home/fsluser/Documents/rs_proc/QualityControl/'
 
 # PARSE Configuration file
 ABIN=$(awk -F\=  '/^ABIN/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')  
@@ -31,6 +32,7 @@ ACQ_TYPE=$(awk -F\=  '/^\<ACQ_TYPE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 | 
 USE_BBR=$(awk -F\=  '/^\<USE_BBR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
 DO_SLC=$(awk -F\=  '/^\<DO_SLC\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
 DO_FMAP=$(awk -F\=  '/^\<DO_FMAP\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+EES=$(awk -F\=  '/^\<EES\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
 DO_PEST=$(awk -F\=  '/^\<DO_PEST\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
 DO_ANAT_FMAP=$(awk -F\=  '/^\<DO_ANAT_FMAP\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
 CORRECT_ANAT_FMAP_NATIVE=$(awk -F\=  '/^\<CORRECT_ANAT_FMAP_NATIVE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
@@ -66,6 +68,38 @@ ABIN=`echo ${ABIN} | tr -d '"'`
 
 
 
+# In case data has multiple blocks (multiple resting state blocks or perhaps task)
+if test ! -z "${BLOCK}"; then
+	FINALDIR=${FINALDIR}_${BLOCK}
+	OUTDIR=${OUTDIR}_${BLOCK}
+fi
+
+#rm -f -r ${OUTDIR}/dicer
+
+
+#gunzip -f ${OUTDIR}/t1_frn_seg.nii.gz
+
+#mv ${OUTDIR}/t1_frn_seg.nii ${OUTDIR}/t1_segt.nii
+
+#rm -f ${OUTDIR}/proc_data_native_3.nii
+#3dresample -dxyz 3 3 3 -prefix ${OUTDIR}/proc_data_native_3.nii -input ${OUTDIR}/proc_data_native.nii
+#
+#${ABIN}/antsApplyTransforms \
+#	-i ${OUTDIR}/t1_frn.nii \
+#	--float \
+#	-r ${OUTDIR}/proc_data_native_3.nii \
+#	-o ${OUTDIR}/t1_nat.nii \
+#	-t [${OUTDIR}/func2anat.mat,1] \
+#	-n Linear
+#
+#CURDIR=`pwd`
+#cd /home/fsluser/Documents/DiCER-master/
+#mkdir ${OUTDIR}/dicer
+#
+#
+#source DiCER_lightweight.sh -i${OUTDIR}/proc_data_native_3.nii -a ${OUTDIR}/t1_nat.nii -w ${OUTDIR}/dicer -s SUBJECT_1  -p 2 -d 
+#cd ${CURDIR}
+#exit 1
 
 print_debug()
 {
@@ -117,8 +151,13 @@ if [ "$DO_COPY" -eq "1" ]; then
 	printf " [$SUB] Copying Files ... "
 	START=$(date -u +%s.%N)
 
-	# Call the project specific script
-	source ${IMPORT_SCRIPT} ${SUB} ${OUTDIR} 
+	if test ! -z "${BLOCK}"; then
+		# Call the project specific script
+		source ${IMPORT_SCRIPT} ${SUB} ${OUTDIR} ${BLOCK}
+	else 
+		# Call the project specific script
+		source ${IMPORT_SCRIPT} ${SUB} ${OUTDIR}
+	fi
 
 	END=$(date -u +%s.%N)
 	DIFF=`echo "( $END - $START )" | bc`
@@ -189,7 +228,9 @@ if [ "$DO_REG" -eq "1" ]; then
 			fi
 
 			{
-			3dAutomask -apply_prefix ${OUTDIR}/tmp/func_data_n.${FI}.nii -prefix ${OUTDIR}/tmp/mask.${FI}.nii ${OUTDIR}/tmp/func_data.${FI}.nii
+			3dAutomask -apply_prefix ${OUTDIR}/tmp/func_data_m.${FI}.nii -prefix ${OUTDIR}/tmp/mask.${FI}.nii ${OUTDIR}/tmp/func_data.${FI}.nii
+			${ABIN}/DenoiseImage -s 1 -x ${OUTDIR}/tmp/mask.${FI}.nii -n Rician -v 1 -i ${OUTDIR}/tmp/func_data_m.${FI}.nii  -o [ ${OUTDIR}/tmp/func_data_n.${FI}.nii ]
+
 			} &> /dev/null
 
 		}
@@ -228,7 +269,7 @@ if [ "$DO_REG" -eq "1" ]; then
 			gunzip -f ${OUTDIR}/${PREF}func_data.nii.gz
 
 			rm -r ${OUTDIR}/tmp
-			python3.6 ~/Documents/rs_proc/QC_funcs/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a func_data.nii -b ${PREF}func_data.nii -type mean -msg1 'With Bias' -msg2 'Without Bias'
+			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a func_data.nii -b ${PREF}func_data.nii -type mean -msg1 'With Bias' -msg2 'Without Bias'
 			log_command_div
 		else 
 			PREF=''
@@ -252,27 +293,17 @@ if [ "$DO_REG" -eq "1" ]; then
 		# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 		# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-		if [ "$DO_DPK" -eq "1" ]; then
-			print_debug 'Despiking [-localedit -NEW]'
-			3dDespike -nomask -NEW -localedit -prefix ${OUTDIR}/d${PREF}func_data.nii ${OUTDIR}/${PREF}func_data.nii 
-			python3.6 ~/Documents/rs_proc/QC_funcs/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b d${PREF}func_data.nii -msg1 'Before Despike' -msg2 'After Despike'
-			PREF=d${PREF}
-			log_command_div
-		fi
+#		if [ "$DO_DPK" -eq "1" ]; then
+#			print_debug 'Despiking [-localedit -NEW]'
+#			3dDespike -nomask -NEW -localedit -prefix ${OUTDIR}/d${PREF}func_data.nii ${OUTDIR}/${PREF}func_data.nii 
+#			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b d${PREF}func_data.nii -msg1 'Before Despike' -msg2 'After Despike'
+#			PREF=d${PREF}
+#			log_command_div
+#		fi
 
 
 
-		# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-		# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-		if [ "$DO_PEST" -eq "1" ] && [ ! "$MOCO" == "slomoco" ]; then
-			print_debug 'PESTICA4 cardiac/respiratory effects correction'
-			# 0 here indicates that SLOMOCO procedure should not be done
-			source ~/Documents/rs_proc/align_pestica.sh ${OUTDIR} ${PREF}func_data ${TR} 0
-			python3.6 ~/Documents/rs_proc/QC_funcs/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b p${PREF}func_data.nii -msg1 'Before PESTICA' -msg2 'After PESTICA'
-			PREF=p${PREF}
-			log_command_div
-		fi
+		
 
 
 
@@ -282,11 +313,10 @@ if [ "$DO_REG" -eq "1" ]; then
 		#		
 		# There are 2 methods here: 3dvolreg or slomoco
 		# My tests seem to confirm the idea that slomoco performs better than 3dvolreg
-		# This procedure, however, is extremely computationaly intensive (it takes horus to complete)
+		# This procedure, however, is extremely computationaly intensive (i.e. it takes hours instead of minutes to complete)
 		#
 		# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-		
-		
+
 		if [ "$MOCO" == "3dvolreg" ]; then
 			VOL2MED_COR=`3dTqual -automask ${OUTDIR}/${PREF}func_data.nii`
 			MIN_VAL=100
@@ -310,10 +340,27 @@ if [ "$DO_REG" -eq "1" ]; then
 			# Motion correction
 			# Performing the realignment to the mean volume increases the processing time quite a lot, without any major benefit
 			# (at least that is what Oakes et al. 2005 say ['Comparison of fMRI motion correction software tools'], though connectivity was not investigated )
-			3dvolreg -heptic -prefix ${OUTDIR}/r${PREF}func_data.nii -base ${REF_VOL} -rot_thresh 0.01 -delta 2 \
-				-x_thresh 0.01 -zpad 10 -maxite 60 -1Dfile ${OUTDIR}/motion_estimate.par -maxdisp1D ${OUTDIR}/maximum_disp.1d \
+#			3dvolreg -heptic -prefix ${OUTDIR}/r${PREF}func_data.nii -base ${REF_VOL} -rot_thresh 0.01 -delta 3 \
+#				-x_thresh 0.01 -zpad 5 -maxite 75 -1Dfile ${OUTDIR}/motion_estimate.par -maxdisp1D ${OUTDIR}/maximum_disp.1d \
+#				 ${OUTDIR}/${PREF}func_data.nii
+
+			3dvolreg -heptic -prefix ${OUTDIR}/tmp_1.nii -base ${REF_VOL} -rot_thresh 0.03 -delta 5 \
+				-x_thresh 0.03 -zpad 5 -maxite 15 -1Dfile ${OUTDIR}/motion_estimate.par -maxdisp1D ${OUTDIR}/maximum_disp.1d \
 				 ${OUTDIR}/${PREF}func_data.nii
 
+			3dAutomask -prefix ${OUTDIR}/mask.nii ${OUTDIR}/tmp_1.nii
+			matlab  "-nodesktop -nosplash -softwareopengl " <<<"despike_data('${OUTDIR}', 'tmp_1.nii', 'tmp_2.nii', 'motion_estimate.par', 'mask.nii' ); exit;"
+			3dDespike -nomask -NEW -localedit -prefix ${OUTDIR}/tmp_3.nii ${OUTDIR}/tmp_2.nii 
+
+
+
+			3dvolreg -heptic -prefix ${OUTDIR}/r${PREF}func_data.nii -base 0 -rot_thresh 0.01 -delta 0.5 \
+				-x_thresh 0.01 -zpad 3 -maxite 60 -1Dfile ${OUTDIR}/motion_estimate_2.par -maxdisp1D ${OUTDIR}/maximum_disp_2.1d \
+				 ${OUTDIR}/tmp_3.nii
+
+			rm -f ${OUTDIR}/tmp_1.nii
+			rm -f ${OUTDIR}/tmp_2.nii
+			rm -f ${OUTDIR}/tmp_3.nii
 
 
 			PREF=r${PREF}
@@ -323,6 +370,11 @@ if [ "$DO_REG" -eq "1" ]; then
 			1dplot -thick -volreg -png ${OUTDIR}/motion_estimate.png -one ${OUTDIR}/motion_estimate.par
 			1dplot -thick -png ${OUTDIR}/maximum_disp.png -one ${OUTDIR}/maximum_disp.1d
 			1dplot -thick -png ${OUTDIR}/maximum_disp_delt.png -one ${OUTDIR}/maximum_disp.1d_delt
+
+			1dplot -thick -volreg -png ${OUTDIR}/motion_estimate_2.png -one ${OUTDIR}/motion_estimate_2.par
+			1dplot -thick -png ${OUTDIR}/maximum_disp_2.png -one ${OUTDIR}/maximum_disp_2.1d
+			1dplot -thick -png ${OUTDIR}/maximum_disp_delt_2.png -one ${OUTDIR}/maximum_disp_2.1d_delt
+
 			log_command_div
 
 		fi
@@ -345,7 +397,7 @@ if [ "$DO_REG" -eq "1" ]; then
 			1dplot -thick -png ${OUTDIR}/maximum_disp_delt.png -one ${OUTDIR}/maximum_disp.1d_delt
 
 
-			python3.6 ~/Documents/rs_proc/QC_funcs/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a r2${PREF}func_data.nii -b rp${PREF}func_data.nii -msg1 'PESTICA+3dvorleg' -msg2 'PESTICA+SLOMOCO'
+			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a r2${PREF}func_data.nii -b rp${PREF}func_data.nii -msg1 'PESTICA+3dvorleg' -msg2 'PESTICA+SLOMOCO'
 			cp ${OUTDIR}/slomoco4/*.txt ${OUTDIR}/
 			cp ${OUTDIR}/slomoco4/*.1D ${OUTDIR}/
 		
@@ -353,6 +405,19 @@ if [ "$DO_REG" -eq "1" ]; then
 			log_command_div
 		fi
 		
+
+
+		# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+		if [ "$DO_PEST" -eq "1" ] && [ ! "$MOCO" == "slomoco" ]; then
+			print_debug 'PESTICA4 cardiac/respiratory effects correction'
+			# 0 here indicates that SLOMOCO procedure should not be done
+			source ~/Documents/rs_proc/align_pestica.sh ${OUTDIR} ${PREF}func_data ${TR} 0
+			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b p${PREF}func_data.nii -msg1 'Before PESTICA' -msg2 'After PESTICA'
+			PREF=p${PREF}
+			log_command_div
+		fi
 
 		# Create native space brain mask
 		3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/${PREF}func_data.nii
@@ -381,7 +446,7 @@ if [ "$DO_REG" -eq "1" ]; then
 
 			filtershift --in=${OUTDIR}/${PREF}func_data.nii --itl=${ACQ_TYPE}  --cf=${CF} --rt=${REF_TIME} --TR=${TR} --out=${OUTDIR}/a${PREF}func_data.nii
 			gunzip -f ${OUTDIR}/a${PREF}func_data.nii.gz
-			python3.6 ~/Documents/rs_proc/QC_funcs/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b a${PREF}func_data.nii -msg1 'Before Slice Corr' -msg2 'After Slice Corr'
+
 			PREF=a${PREF}
 			log_command_div
 		fi
@@ -391,6 +456,7 @@ if [ "$DO_REG" -eq "1" ]; then
 		# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
+		# Distortion correction using reverse phase acquisition
 		if [ "$DO_FMAP" -eq "1" ]; then
 			print_debug 'Reverse phase fieldmap estimation and distortion correction'
 
@@ -460,23 +526,36 @@ if [ "$DO_REG" -eq "1" ]; then
 			3dAutomask -apply_prefix ${OUTDIR}/tmp.nii ${OUTDIR}/u${PREF}func_data.nii
 			rm ${OUTDIR}/u${PREF}func_data.nii
 			mv ${OUTDIR}/tmp.nii ${OUTDIR}/u${PREF}func_data.nii
-			python3.6 ~/Documents/rs_proc/QC_funcs/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b u${PREF}func_data.nii -type mean -msg1 'Before FMAP' -msg2 'After FMAP'
+			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b u${PREF}func_data.nii -type mean -msg1 'Before FMAP' -msg2 'After FMAP'
 			PREF=u${PREF}
 			log_command_div
 
 		fi
 
 
+		# Distortion correction using acquired fieldmap (magnitude and phase)
 		if [ "$DO_FMAP" -eq "2" ]; then
-			# NOTE: This is working only for Philips fieldmaps at the moment
-			fslmaths ${OUTDIR}/fmap_phase -div 250 -mul 3.141593 ${OUTDIR}/fmap_phase_rads
-			fugue --loadfmap=${OUTDIR}/fmap_phase_rads -s 1 --despike --savefmap=${OUTDIR}/fmap_phase_rads
-			gunzip -f ${OUTDIR}/fmap_phase_rads.nii.gz
+			print_debug 'Fieldmap correction'
+			
+			fslmaths ${OUTDIR}/${PREF}func_data -Tmean  ${OUTDIR}/mean_func
 
-			#TODO FINISH
-			# wfs[pcasl] = 10.570
-			# ees = (((1000 * 10.57)/434.215 * (39+1))/1) = 7850 / 17368.6 = 0.45196504036
 
+			flirt  -in ${OUTDIR}/fmap_mag_brain -ref ${OUTDIR}/mean_func -omat ${OUTDIR}/fmap2func
+
+			flirt  -in ${OUTDIR}/fmap_mag -ref ${OUTDIR}/mean_func -applyxfm -init ${OUTDIR}/fmap2func -out ${OUTDIR}/fmap_mag_func
+			flirt  -in ${OUTDIR}/fmap_phase_rads -ref ${OUTDIR}/mean_func -applyxfm -init ${OUTDIR}/fmap2func -out ${OUTDIR}/fmap_phase_rads_func
+
+
+			fugue --loadfmap=${OUTDIR}/fmap_phase_rads_func -s 1 --despike --savefmap=${OUTDIR}/fmap_phase_rads_func
+
+			#TODO Pass unwarpdir to configuration
+			fugue -i ${OUTDIR}/${PREF}func_data.nii --dwell=${EES} --loadfmap=${OUTDIR}/fmap_phase_rads_func -u ${OUTDIR}/u${PREF}func_data.nii --unwarpdir=y-
+
+			gunzip -f ${OUTDIR}/u${PREF}func_data.nii.gz
+			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b u${PREF}func_data.nii -type mean -msg1 'Before FMAP' -msg2 'After FMAP'
+
+			PREF=u${PREF}
+			log_command_div
 		fi
 
 
@@ -543,6 +622,9 @@ if [ "$DO_REG" -eq "1" ]; then
 
 fi
 
+
+
+
 # ------------------------------------------------------------------------
 # ------------------------------------------------------------------------
 # ------------------------------------------------------------------------
@@ -553,6 +635,8 @@ fi
 
 
 
+# TODO Add the possibility to import this from somewhere 
+# This would be useful when there are multiple functional blocks (no need process anatomical and register to MNI again in those cases)
 
 # Calculate WARP to group template
 if [ "$DO_REG2" -eq "1" ]; then
@@ -563,8 +647,8 @@ if [ "$DO_REG2" -eq "1" ]; then
 	{
 
 	# Bias field correction and Gaussian noise reduction
-	# TODO Remove this var
-	# It is only here as a debug measure to avoid running the costly registration procedure multiple times
+	# TODO Pass to parameter section
+	# Necessary files must be copied in case this section does not run (e.g. multiple blocks of functional data for the same participant)
 	DO_ANAT=1
 
 	if [ "$DO_ANAT" -eq "1" ]; then
@@ -676,32 +760,33 @@ if [ "$DO_REG2" -eq "1" ]; then
 			-t [${OUTDIR}/anat2group0GenericAffine.mat,0] \
 			-n Linear
 
-
-		# Prepare reference functional image
-		# Strictly speaking, it is not necessary to denoise, but my testes indicate that this might help in some cases
-		# I cannot see a reason it would negatively impact anything
-		fslmaths "${OUTDIR}/proc_data_native.nii" -Tmedian -thr 0 "${OUTDIR}/ref_func_b.nii"
-		gunzip -f ${OUTDIR}/ref_func_b.nii.gz
-		${ABIN}/DenoiseImage -i ${OUTDIR}/ref_func_b.nii  -o [ ${OUTDIR}/ref_func_bf.nii]
-		3dAutomask -apply_prefix ${OUTDIR}/ref_func_bfm.nii ${OUTDIR}/ref_func_bf.nii 
-
-
-
-		if [ "${USE_BBR}" -eq "1" ]; then
-
-			echo "Using BBR procedure to match func to anat images"
-			epi_reg --epi=${OUTDIR}/ref_func_bf.nii --t1brain=${OUTDIR}/t1_frn.nii --t1=${OUTDIR}/t1_f.nii \
-				--wmseg=${OUTDIR}/wm_mask.nii -v --out=${OUTDIR}/afunc2anat.nii 
-			gunzip -f ${OUTDIR}/afunc2anat.nii.gz
-
-		else
-			flirt -in ${OUTDIR}/ref_func_bfm.nii -out ${OUTDIR}/afunc2anat.nii -ref ${OUTDIR}/t1_frn.nii -cost normmi -omat ${OUTDIR}/afunc2anat.mat 
-			gunzip -f ${OUTDIR}/afunc2anat.nii
-		fi
-
-		~/Documents/itk/c3d/bin/c3d_affine_tool -ref ${OUTDIR}/t1_frn.nii -src ${OUTDIR}/ref_func_bf.nii ${OUTDIR}/afunc2anat.mat -fsl2ras -oitk ${OUTDIR}/func2anat.mat
-
 	fi
+
+	# Prepare reference functional image
+	# Strictly speaking, it is not necessary to denoise, but my testes indicate that this might help in some cases
+	# I cannot see a reason it would negatively impact anything
+	fslmaths "${OUTDIR}/proc_data_native.nii" -Tmedian -thr 0 "${OUTDIR}/ref_func_b.nii"
+	gunzip -f ${OUTDIR}/ref_func_b.nii.gz
+	${ABIN}/DenoiseImage -i ${OUTDIR}/ref_func_b.nii  -o [ ${OUTDIR}/ref_func_bf.nii]
+	3dAutomask -apply_prefix ${OUTDIR}/ref_func_bfm.nii ${OUTDIR}/ref_func_bf.nii 
+
+
+
+	if [ "${USE_BBR}" -eq "1" ]; then
+
+		echo "Using BBR procedure to match func to anat images"
+		epi_reg --epi=${OUTDIR}/ref_func_bf.nii --t1brain=${OUTDIR}/t1_frn.nii --t1=${OUTDIR}/t1_f.nii \
+			--wmseg=${OUTDIR}/wm_mask.nii -v --out=${OUTDIR}/afunc2anat.nii 
+		gunzip -f ${OUTDIR}/afunc2anat.nii.gz
+
+	else
+		flirt -in ${OUTDIR}/ref_func_bfm.nii -out ${OUTDIR}/afunc2anat.nii -ref ${OUTDIR}/t1_frn.nii -cost normmi -omat ${OUTDIR}/afunc2anat.mat 
+		gunzip -f ${OUTDIR}/afunc2anat.nii
+	fi
+
+	~/Documents/itk/c3d/bin/c3d_affine_tool -ref ${OUTDIR}/t1_frn.nii -src ${OUTDIR}/ref_func_bf.nii ${OUTDIR}/afunc2anat.mat -fsl2ras -oitk ${OUTDIR}/func2anat.mat
+
+
 	
 	
 	# Try to use anatomical T1 to correct field inhomogeneity.	
@@ -1061,9 +1146,9 @@ if [ "$DO_ICA" -eq "1" ]; then
 		rm -f -R ${OUTDIR}/melodic.ic
 		rm -f -R ${OUTDIR}/FIX
 
-		# --dimest=lap is the default, but it seems empirically to overestimate components (~130)
+		# --dimest=lap is the default, but it seems empirically to overestimate components 
 		# see also Varoquaux et al. 2010 NeuroImage
-		melodic -i ${OUTDIR}/tmp_melodic.nii -o ${OUTDIR}/melodic.ic --tr=${TR} --mmthresh=0.5 --nobet --dimest=bic \
+		melodic -i ${OUTDIR}/tmp_melodic.nii -o ${OUTDIR}/melodic.ic --tr=${TR} --mmthresh=0.5 --nobet --dimest=bic --approach=tica \
 			 --mask=${OUTDIR}/nat_mask.nii --Ostats --report  --eps=0.0005 --bgimage=${OUTDIR}/t1_nat_bg.nii
 
 
@@ -1115,6 +1200,7 @@ if [ "$DO_ICA" -eq "1" ]; then
 
 fi
 
+exit 1
 
 # ------------------------------------------------------------------------
 # ------------------------------------------------------------------------
