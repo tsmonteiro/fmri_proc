@@ -27,7 +27,8 @@ loop()
 	fi
 	#./proc_rsdata.sh $i /home/fsluser/Documents/rs_proc/conf_files/crunch.conf
 
-	./proc_rsdata.sh $SID /home/fsluser/Documents/rs_proc/conf_files/crunch_task.conf 1
+	#./proc_main.sh $SID /home/fsluser/Documents/rs_proc/conf_files/crunch_task.conf 1
+	./proc_main.sh $SID /home/fsluser/Documents/rs_proc/conf_files/crunch.conf 
 	
 		
 	#./proc_rsdata.sh sub$SID /home/fsluser/Documents/rs_proc/conf_files/china.conf
@@ -51,7 +52,7 @@ loop()
 }
 export -f loop
 #parallel -j3 --line-buffer loop ::: $(seq 1 13) 
-parallel -j1 --line-buffer loop :::  2 4 5 6 7 9 10 56 
+parallel -j1 --line-buffer loop :::  85
 #parallel -j4 --line-buffer loop ::: B N ::: 1 2 3  ::: $(seq 1 90) 
 
 #done    

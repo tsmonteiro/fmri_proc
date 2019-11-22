@@ -40,24 +40,24 @@ do
 done
 
 
-for F in "${DICOMDIR_A}/*pCASL*.PAR"
-do
-	echo $F
-	#dcm2niix_afni -s y -v 2 -p n -o ${OUTDIR} $F
-	#3dPAR2AFNI.pl -n -o ${OUTDIR} $F
-	python par2nii.py -i $F -o ${OUTDIR}/pCASL.nii
-
-done
-
-
-for F in "${DICOMDIR_A}/*GRASE*.PAR"
-do
-	echo $F
-	#dcm2niix_afni -s y -v 2 -p n -o ${OUTDIR} $F
-	#3dPAR2AFNI.pl -n -o ${OUTDIR} $F
-	python par2nii.py -i $F -o ${OUTDIR}/GRASE.nii
-
-done
+#for F in "${DICOMDIR_A}/*pCASL*.PAR"
+#do
+#	echo $F
+#	#dcm2niix_afni -s y -v 2 -p n -o ${OUTDIR} $F
+#	#3dPAR2AFNI.pl -n -o ${OUTDIR} $F
+#	python par2nii.py -i $F -o ${OUTDIR}/pCASL.nii
+#
+#done
+#
+#
+#for F in "${DICOMDIR_A}/*GRASE*.PAR"
+#do
+#	echo $F
+#	#dcm2niix_afni -s y -v 2 -p n -o ${OUTDIR} $F
+#	#3dPAR2AFNI.pl -n -o ${OUTDIR} $F
+#	python par2nii.py -i $F -o ${OUTDIR}/GRASE.nii
+#
+#done
 
 	
 {
@@ -105,6 +105,39 @@ done
 for F in ${OUTDIR}/*RSN*.nii
 do			
 	mv $F ${OUTDIR}/func_data.nii
+done
+
+
+for F in "${DICOMDIR_A}/*fieldmap*.PAR"
+do
+
+	if test -f ${F}; then
+		python3.6 -W ignore /home/fsluser/Documents/rs_proc/import_scripts/par2nii.py -i $F -o ${OUTDIR}/fmap.nii
+		HAS_FMAP=1
+
+		{
+			3dTcat -prefix ${OUTDIR}/fmap_mag.nii ${OUTDIR}/fmap.nii[0]
+			3dTcat -prefix ${OUTDIR}/fmap_phase.nii ${OUTDIR}/fmap.nii[1]
+
+			# FMAP has to be in rad/s, but
+			# philips scanner saves phase image in Hz (1/deltaTE) --> -250Hz <-> 250Hz
+			fslmaths ${OUTDIR}/fmap_phase -div 250 -mul 3.141593  -mul 1000 -div 3 ${OUTDIR}/fmap_phase_rads
+
+			3dAutomask -prefix ${OUTDIR}/fmap_mask.nii -apply_prefix ${OUTDIR}/fmap_mag_brain.nii ${OUTDIR}/fmap_mag.nii
+
+			fslmaths ${OUTDIR}/fmap_phase_rads -mas ${OUTDIR}/fmap_mask.nii ${OUTDIR}/fmap_phase_rads_m
+
+
+			# A bit of regularization
+			fugue --loadfmap=${OUTDIR}/fmap_phase_rads_m -s 1 --despike --savefmap=${OUTDIR}/fmap_phase_rads_m
+			mv ${OUTDIR}/fmap_phase_rads_m.nii.gz ${OUTDIR}/fmap_phase_rads.nii.gz
+		} &> /dev/null
+
+	else
+		HAS_FMAP=0
+		echo "WARNING No FIELDMAP PAR/REC to be imported"
+		touch ${OUTDIR}/no_fmap.txt
+	fi
 done
 
 

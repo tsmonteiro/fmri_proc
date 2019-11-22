@@ -99,7 +99,7 @@ WDIR=`pwd`
 if $makeTissueMap;then
 	printf "\n\nPeforming FAST tissue segmentation with anatomical image $anatomical\n"
 	# Perform FAST segmentation:
-	fast -o $output_folder"/tmp_dir/"$subject $anatomical
+	fast --nobias -o $output_folder"/tmp_dir/"$subject $anatomical
 
 	# Get the segmentation file:
 	segmentation_file=$output_folder"/tmp_dir/"$subject"_seg"

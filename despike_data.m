@@ -17,7 +17,7 @@ MASK=cat(2,OUTDIR, filesep, MASK_FILE);
 
 spikecor(DATA,MASK, MPE, ...
     cat(2, OUTDIR, filesep, 'spk_', FNAME), ...
-    'volume+motion',DATA_OUT);
+    'volume',DATA_OUT);
 system(['rm ' OUTDIR filesep 'spk*.mat']);
 
 
