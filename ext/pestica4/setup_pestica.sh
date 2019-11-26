@@ -1,5 +1,5 @@
 # edit the hard-coded base directory containing the matlab code and the averaged volumes
-export PESTICA_DIR=/home/fsluser/Documents/pestica4    # set the one you use pestica4
+export PESTICA_DIR=/home/fsluser/Documents/rs_proc/ext/pestica4    # set the one you use pestica4
 export SLOMOCO_DIR=$PESTICA_DIR/slomoco
 export PESTICA_VOL_DIR=$PESTICA_DIR/template
 

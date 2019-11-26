@@ -39,12 +39,15 @@ def main(raw_args=None):
 
 
 	import csv
-	from itertools import izip
+	try:
+		from itertools import izip as zip
+	except ImportError:
+		pass
 	import numpy as np
 	import matplotlib.pyplot as plt
 	from matplotlib import gridspec
 
-	with open(regressors, 'rb') as csvfile:
+	with open(regressors, 'r') as csvfile:
 		spamreader = csv.reader(csvfile, delimiter=',')
 		# row_count = sum(1 for row_dummy in spamreader)	
 		total = []

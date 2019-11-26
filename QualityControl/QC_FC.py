@@ -114,6 +114,10 @@ reqoptions.add_argument('-t', '-tr', dest="tr", required=True,  help='TR' )
 reqoptions.add_argument('-u', '-high', dest="high", required=False, default=None, help='Highpass cutoff' )
 reqoptions.add_argument('-l', '-low', dest="low", required=False, default=None, help='Low-pass cutoff' )
 
+
+reqoptions.add_argument('-vmin', dest="vmin", required=False, default=-0.8, help='Highpass cutoff' )
+reqoptions.add_argument('-vmax', dest="vmax", required=False, default=0.8, help='Low-pass cutoff' )
+
 reqoptions.add_argument('-d', '-dpi', dest="dpi", required=False, default=120, help='Saved figure DPI' )
 
 
@@ -150,6 +154,10 @@ figDpi=int(args.dpi)
 
 
 nuis = None
+
+
+vmin = float(args.vmin)
+vmax = float(args.vmax)
 
 if args.cov1 != None:
 	nuis = load_nuis(inDir + '/' + args.cov1)
@@ -246,7 +254,7 @@ for n in range(len(netLen)):
 
 
 
-nlp.plot_matrix(corrMat, vmin=-.8, vmax=.8, labels=labs, grid=False, auto_fit=True, colorbar=True, figure=fig, cmap='cold_white_hot')
+nlp.plot_matrix(corrMat, vmin=vmin, vmax=vmax, labels=labs, grid=False, auto_fit=True, colorbar=True, figure=fig, cmap='cold_white_hot')
 
 prev = 0
 for n in range(len(netLen)):
@@ -271,7 +279,7 @@ for n in range(n1):
 	corrMatMsdl[n,n] =  0
 
 fig = plt.figure(figsize=(20,20), dpi=figDpi, facecolor='w', edgecolor='k')
-nlp.plot_matrix(corrMatMsdl, vmin=-.8, vmax=.8, labels=msdlLabels, grid=True, auto_fit=True, colorbar=True, figure=fig, cmap='cold_white_hot')
+nlp.plot_matrix(corrMatMsdl, vmin=vmin, vmax=vmax, labels=msdlLabels, grid=True, auto_fit=True, colorbar=True, figure=fig, cmap='cold_white_hot')
 plt.savefig(outFileMsdl)
 
 

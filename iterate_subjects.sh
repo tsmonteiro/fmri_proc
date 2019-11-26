@@ -52,7 +52,7 @@ loop()
 }
 export -f loop
 #parallel -j3 --line-buffer loop ::: $(seq 1 13) 
-parallel -j1 --line-buffer loop :::  85
+parallel -j1 --line-buffer loop :::  97
 #parallel -j4 --line-buffer loop ::: B N ::: 1 2 3  ::: $(seq 1 90) 
 
 #done    

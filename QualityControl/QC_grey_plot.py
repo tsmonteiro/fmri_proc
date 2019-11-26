@@ -16,7 +16,16 @@ import nilearn.plotting as nlp
 import nilearn.image as nimg
 import nilearn.signal as sgn
 
-import motion_handler as mh
+import configparser
+config = configparser.ConfigParser()
+config.read('params.ini')
+
+#PATH to qclib
+sys.path.append(config['PATHS']['qclib_path'])
+
+import qclib.motion_handler as mh
+import qclib as qc
+
 
 
 parser = argparse.ArgumentParser(description='Save QA check Plots')

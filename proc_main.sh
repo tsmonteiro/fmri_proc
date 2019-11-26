@@ -73,7 +73,12 @@ if test ! -z "${BLOCK}"; then
 	FINALDIR=${FINALDIR}_${BLOCK}
 	OUTDIR=${OUTDIR}_${BLOCK}
 fi
-
+	
+LOGDIR=${OUTDIR}/logs
+if test ! -d "${LOGDIR}"; then
+	mkdir ${LOGDIR}
+fi
+	
 
 
 print_debug()
@@ -351,7 +356,7 @@ if [ "$DO_REG" -eq "1" ]; then
 			# Performing the realignment to the mean volume increases the processing time quite a lot, without any major benefit
 			# (at least that is what Oakes et al. 2005 say ['Comparison of fMRI motion correction software tools'], though connectivity was not investigated )
 			3dTcat -prefix ${OUTDIR}/ref_vol.nii -TR ${TR} ${OUTDIR}/${PREF}func_data.nii[${REF_VOL}]
-			3dmerge -prefix ${OUTDIR}/ref_vol_smooth.nii -1blur_fwhm 4 ${OUTDIR}/ref_vol.nii
+			3dmerge -prefix ${OUTDIR}/ref_vol_smooth.nii -1blur_fwhm 2 ${OUTDIR}/ref_vol.nii
 
 
 			3dvolreg -heptic -prefix ${OUTDIR}/r${PREF}func_data.nii -base ${OUTDIR}/ref_vol_smooth.nii -rot_thresh 0.001 -delta 0.15 \
@@ -970,7 +975,7 @@ fi
 # ------------------------------------------------------------------------
 
 
-if [ "${REG_MODEL}" != "FIX" ] || [ "$DO_QA" -eq "1" ] || [ "$EXTRACT_NUIS" -eq "1" ]; then
+if  [ "${REG_MODEL}" != "FIX" ] || [ "$DO_QA" -eq "1" ] || [ "$EXTRACT_NUIS" -eq "1" ]; then
 
 	printf "[$SUB] Extracting Nuisance Regressors ... "
 	START=$(date -u +%s.%N)
@@ -1135,13 +1140,13 @@ if [ "$DO_ICA" -eq "1" ]; then
 
 		# --dimest=lap is the default, but it seems empirically to overestimate components 
 		# see also Varoquaux et al. 2010 NeuroImage
-		melodic -i ${OUTDIR}/tmp_melodic.nii -o ${OUTDIR}/melodic.ic --tr=${TR} --mmthresh=0.5 --nobet --dimest=bic \
+		melodic -i ${OUTDIR}/tmp_melodic.nii -o ${OUTDIR}/melodic.ic --tr=${TR} --mmthresh=0.5 --nobet --dimest=aic \
 			 --mask=${OUTDIR}/nat_mask.nii --Ostats --report  --eps=0.0005 --bgimage=${OUTDIR}/t1_nat_bg.nii
 
 
 		rm ${OUTDIR}/tmp_melodic.nii 
 
-		# Creates a smoothed copy of the melodic components. Sometimes helps with visualization
+		# Creates a smoothed copy of the melodic components. For visualization purposes only
 		3dmerge -doall -1blur_fwhm 4 -prefix ${OUTDIR}/melodic.ic/melodic_IC_smooth.nii ${OUTDIR}/melodic.ic/melodic_IC.nii.gz
 
 
@@ -1217,6 +1222,7 @@ if [ "$DO_NORM" -eq "1" ]; then
 
 			mv ${OUTDIR}/FIX/filtered_func_data_clean.nii.gz ${OUTDIR}/proc_data_native_fix.nii.gz
 			gunzip -f ${OUTDIR}/proc_data_native_fix.nii.gz
+			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a proc_data_native.nii -b  proc_data_native_fix.nii -type std -msg1 'Before FIX' -msg2 'After FIX'
 
 			# Physiological noise estimation using PHYCAA+ [TODO REF]
 			if [ "${DO_PEST}" -eq "2" ]; then
@@ -1347,19 +1353,24 @@ if [ "$DO_NORM" -eq "1" ]; then
 
 			rm -f -r ${OUTDIR}/dicer
 			CURDIR=`pwd`
+
+			# TODO Set up conf for DiCER PATH
 			cd /home/fsluser/Documents/rs_proc/ext/DiCER/
 			mkdir ${OUTDIR}/dicer
+
+			cp ${OUTDIR}/motion_regressors_12.txt ${OUTDIR}/dicer/regressors.txt
 
 			# If background is not 0, fast has problem getting the correct tissue distrub
 			fslmaths ${OUTDIR}/anat2group_lowres.nii -thr 200 ${OUTDIR}/anat2group_lowres_thr.nii
 
-			source DiCER_lightweight.sh -i ${OUTDIR}/proc_data_mni_fix.nii -a ${OUTDIR}/anat2group_lowres_thr.nii.gz -w ${OUTDIR}/dicer -s SUBJECT_1  -p 2 -d 
+			source DiCER_lightweight.sh -i ${OUTDIR}/proc_data_mni_fix.nii -a ${OUTDIR}/anat2group_lowres_thr.nii.gz -w ${OUTDIR}/dicer -s SUBJECT_1  -p 2 -d -c regressors.txt
 			cd ${CURDIR}
-			mv ${OUTDIR}/dicer/proc_data_mni_fix.nii_detrended_hpf_GMR.nii.gz  ${OUTDIR}/proc_data_mni_fix_d.nii.gz
+			
+			mv ${OUTDIR}/dicer/proc_data_mni_fix.nii_detrended_hpf_dbscan.nii.gz  ${OUTDIR}/proc_data_mni_fix_d.nii.gz
 			gunzip -f ${OUTDIR}/proc_data_mni_fix_d.nii.gz
 
 
-			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${OUTDIR}/proc_data_mni_fix.nii -b ${OUTDIR}/proc_data_mni_fix_d.nii -type mean -msg1 'Before DICER' -msg2 'After DICER'
+			python3.6 ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a  proc_data_mni_fix.nii -b  proc_data_mni_fix_d.nii -type std -msg1 'Before DICER' -msg2 'After DICER'
 			mv ${OUTDIR}/proc_data_mni_fix_d.nii ${OUTDIR}/proc_data_mni_fix_d.nii
 			rm -f -r ${OUTDIR}/dicer
 
@@ -1385,8 +1396,6 @@ if [ "$DO_NORM" -eq "1" ]; then
 	printf "DONE [%.1f s]\n" $DIFF
 fi
 
-
-exit 1
 
 
 
@@ -1430,7 +1439,9 @@ if [ "$DO_QA" -eq "1" ]; then
 		OUTDIR=${1}
 		MNI_REF_2mm=${2}
 		TR=${3}
-		REG_MODEL=${4}
+		QCDIR=${4}
+		REG_MODEL=${5}
+
 		mkdir ${OUTDIR}/QA_${REG_MODEL}
 		QA_DIR=${OUTDIR}/QA_${REG_MODEL}
 
@@ -1448,12 +1459,19 @@ if [ "$DO_QA" -eq "1" ]; then
 		
 		if [ "${REG_MODEL}" == "SFIX" ]; then
 
-			3dTproject -prefix ${OUTDIR}/proc_data_mni_${REG_MODEL}.nii -polort 1 -mask ${OUTDIR}/mni_mask.nii -TR ${TR}  -cenmode NTRP \
+			3dTproject -prefix ${OUTDIR}/proc_data_mni_${REG_MODEL}.nii -polort 2 -mask ${OUTDIR}/mni_mask.nii -TR ${TR}  -cenmode NTRP \
 					 -stopband 0 0.01  \
 					 -ort ${OUTDIR}/motion_regressors_12.txt \
-					 -ort ${OUTDIR}/motion_regressors_24.txt \
 					 -censor ${OUTDIR}/temporal_mask_fd.txt \
 					 -input ${OUTDIR}/proc_data_mni_fix.nii	
+		fi
+
+		if [ "${REG_MODEL}" == "SFIX_D" ]; then
+
+			3dTproject -prefix ${OUTDIR}/proc_data_mni_${REG_MODEL}.nii -polort 0 -mask ${OUTDIR}/mni_mask.nii -TR ${TR}  -cenmode NTRP \
+					 -stopband 0 0.01  \
+					 -censor ${OUTDIR}/temporal_mask_fd.txt \
+					 -input ${OUTDIR}/proc_data_mni_fix_d.nii	
 		fi
 
 		if [ "${REG_MODEL}" == "SFIX_P" ]; then
@@ -1511,7 +1529,7 @@ if [ "$DO_QA" -eq "1" ]; then
 
 
 
-		python3.6 /home/fsluser/Documents/rs_proc/QC_funcs/QC_grey_plot.py -out ${QA_DIR} -in ${OUTDIR}  -mpe motion_estimate.par \
+		python3.6 ${QCDIR}/QC_grey_plot.py -out ${QA_DIR} -in ${OUTDIR}  -mpe motion_estimate.par \
 					-fname proc_data_mni_${REG_MODEL}.nii -csf_name csf_mask_mni.nii -wm_name wm_mask_mni.nii -gm_name gm_mask_mni.nii \
 					-norm zscore -range 1.0 \
 					-prog AFNI -outf 02_Greyplot_${REG_MODEL}  -dpi 300 -tr ${TR}
@@ -1538,7 +1556,7 @@ if [ "$DO_QA" -eq "1" ]; then
 #					-range 95% -plane coronal -thr 0.3 -smooth 0 \
 #					-prog AFNI -outf 04_GlobalCorr_y_${REG_MODEL}  -dpi 300 
 #
-		python3.6 /home/fsluser/Documents/rs_proc/QC_funcs/QC_temporal_stats.py -out ${QA_DIR} -in ${OUTDIR}  -mpe motion_estimate.par \
+		python3.6 ${QCDIR}/QC_temporal_stats.py -out ${QA_DIR} -in ${OUTDIR}  -mpe motion_estimate.par \
 					-fname proc_data_mni_${REG_MODEL}.nii -bg ${MNI_REF_2mm} -type GlobalCorr \
 					-range 95% -plane axial -thr 0.3 -smooth 0 -save_nii 1 \
 					-prog AFNI -outf 04_GlobalCorr_z_${REG_MODEL}  -dpi 300 
@@ -1550,7 +1568,7 @@ if [ "$DO_QA" -eq "1" ]; then
 #					-prog AFNI -outf 04_GlobalCorr_x_${REG_MODEL}  -dpi 300 
 #
 #
-		python3.6 /home/fsluser/Documents/rs_proc/QC_funcs/QC_temporal_stats.py -out ${QA_DIR} -in ${OUTDIR}  -mpe motion_estimate.par \
+		python3.6 ${QCDIR}/QC_temporal_stats.py -out ${QA_DIR} -in ${OUTDIR}  -mpe motion_estimate.par \
 					-fname proc_data_mni_${REG_MODEL}.nii -bg ${MNI_REF_2mm} -type MotionCorr \
 					-range 95% -plane axial -thr 0.3 -smooth 0 -save_nii 1 \
 					-prog AFNI -outf 04_MotionCorr_z_${REG_MODEL}  -dpi 300 
@@ -1572,8 +1590,9 @@ if [ "$DO_QA" -eq "1" ]; then
 #				-fname proc_data_mni_${REG_MODEL}.nii -outf 05_FC_${REG_MODEL}  \
 #				-low 0.1 -high 0.01 -dpi 300 
 
-		python3.6 /home/fsluser/Documents/rs_proc/QC_funcs/QC_FC.py -out ${QA_DIR} -in ${OUTDIR}   -tr ${TR} \
+		python3.6 ${QCDIR}/QC_FC.py -out ${QA_DIR} -in ${OUTDIR}   -tr ${TR} \
 				-fname proc_data_mni_${REG_MODEL}.nii -outf 05_FC_${REG_MODEL}  \
+				-vmin -0.5 -vmax 0.5 \
 				 -dpi 300 
 
 		#rm -f ${OUTDIR}/proc_data_mni_${REG_MODEL}.nii
@@ -1581,7 +1600,7 @@ if [ "$DO_QA" -eq "1" ]; then
 	}
 	export -f model_qa
 
-	parallel -j3 --line-buffer model_qa ::: ${OUTDIR} ::: ${MNI_REF_2mm} ::: ${TR} :::  NONE SFIX SFIX_P SRP24WM1CSF1 SRP9 SRP24CC #NONE SFIXM SRP24WM1CSF1 SFIX_NONAGG SRP9 SRP24CC #NONE FIX_NONAGG FIX_AGG SFIX_NONAGG SFIX_AGG  RP24WM1CSF1 RP9 RP24CC SRP24WM1CSF1 SRP9 SRP24CC
+	parallel -j3 --line-buffer model_qa ::: ${OUTDIR} ::: ${MNI_REF_2mm} ::: ${TR} ::: ${QCDIR}  :::  NONE SFIX_D SFIX SRP24WM1CSF1 SRP9 SRP24CC #NONE SFIXM SRP24WM1CSF1 SFIX_NONAGG SRP9 SRP24CC #NONE FIX_NONAGG FIX_AGG SFIX_NONAGG SFIX_AGG  RP24WM1CSF1 RP9 RP24CC SRP24WM1CSF1 SRP9 SRP24CC
 
 
 
@@ -1600,21 +1619,6 @@ fi
 exit 1
 
 
-if [ "$DO_CLEAN" -eq "1" ]; then
-
-	#=====================================
-
-
-
-	{
-
-		rm -f ${OUTDIR}/func_data_*.nii*
-
-	} &> /dev/null
-
-
-
-fi
 
 END_ALL=$(date -u +%s.%N)
 DIFF=`echo "( $END_ALL - $START_ALL )" | bc`

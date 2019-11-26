@@ -17,7 +17,20 @@ import nilearn.plotting as nlp
 import nilearn.image as nimg
 import nilearn.signal as sgn
 
-import motion_handler as mh
+import configparser
+
+config = configparser.ConfigParser()
+config.read('params.ini')
+
+
+
+sys.path.append(config['PATHS']['qclib_path'])
+
+import qclib.motion_handler as mh
+import qclib as qc
+
+
+
 
 
 def plot_brain_overlay(data, bgImg, rangeVal, figDpi, slAxis='z', thr=0, is_stat=False):
