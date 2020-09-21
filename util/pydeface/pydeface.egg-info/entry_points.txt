@@ -1,0 +1,3 @@
+[console_scripts]
+pydeface = pydeface.__main__:main
+

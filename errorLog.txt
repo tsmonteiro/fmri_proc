@@ -1,0 +1,12 @@
+Error Time: 01/14/2020 10:15:38
+Error using load
+Unable to read file '/home/luna.kuleuven.be/u0101486/workspace/data/CRUNCH/tmp/RS087/FIX/filtered_func_data.ica/filtered_func_data.ica/melodic_mix'. No such file or directory.
+ 
+Error Time: 01/29/2020 12:17:56
+Error using horzcat
+Dimensions of matrices being concatenated are not consistent.
+ 
+Error Time: 01/29/2020 12:21:43
+Error using horzcat
+Dimensions of matrices being concatenated are not consistent.
+ 

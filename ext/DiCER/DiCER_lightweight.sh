@@ -67,7 +67,7 @@ fi
 
 # Setting up extra variables once you have everything!
 folder=$output_folder #this is the working directory.
-#input=$output_folder"/"$input_file
+#fullInput_file=$output_folder"/"$input_file
 input=$input_file
 confounds=$output_folder$confounds
 
@@ -76,9 +76,9 @@ confounds=$output_folder$confounds
 if $freesurfer;then
 	# Change the dimensions of the nifti to make it work with the rest of the script, currently doesn't handle giftis or ciftis directly, making this shortcut to have the code work all the way through
 	outFile=$output_folder"/func_temp.nii.gz"
-	python3.6 hcp_processing/reshapeSurfaceNifti.py -f $input -o $outFile
+	python hcp_processing/reshapeSurfaceNifti.py -f $input -o $outFile
 	input=$outFile
-	orig=$input_file
+	orig=$fullInput_file
 	input_file="func_temp.nii.gz"
 	# Here just making a tissue file based just on the surface time series, i.e. setting it that all time series on the vertices are used in the estimation of regressors.
 	fslmaths $input -Tmean -abs -bin -mul 4 $output_folder"tissue.nii.gz"
@@ -157,10 +157,10 @@ if [ $ds_factor -gt 0 ];then
 	echo $tissue_mask
 	echo $output_folder"/tmp_dir/"$subject"gsReorder.nii.gz"
 	echo ""
-	python3.6 ${WDIR}/fmriprepProcess/gsReorder.py -f $input -ts $tissue_mask -of $output_folder"/tmp_dir/"$subject"gsReorder.nii.gz"
+	python ${WDIR}/fmriprepProcess/gsReorder.py -f $input -ts $tissue_mask -of $output_folder"/tmp_dir/"$subject"gsReorder.nii.gz"
 	base_tissue_mask=`basename $tissue_mask .nii.gz` 
 	tissue_mask_ds=$output_folder"/"$base_tissue_mask"_dsFactor_"$ds_factor".nii.gz"
-	python3.6 ${WDIR}/utils/sparse_sample_tissue.py -o $output_folder"/tmp_dir/"$subject"gsReorder.nii.gz" -ds $ds_factor -ts $tissue_mask -tsd $tissue_mask_ds
+	python ${WDIR}/utils/sparse_sample_tissue.py -o $output_folder"/tmp_dir/"$subject"gsReorder.nii.gz" -ds $ds_factor -ts $tissue_mask -tsd $tissue_mask_ds
 	tissue_mask=$tissue_mask_ds
 fi
 
@@ -168,7 +168,7 @@ printf "\n\nPerfoming DiCER..\n\n\n"
 
 
 
-python3.6 ${WDIR}/carpetCleaning/clusterCorrect.py $tissue_mask '.' $input $folder $subject
+python ${WDIR}/carpetCleaning/clusterCorrect.py $tissue_mask '.' $input $folder $subject
 
 # Regress out all the regressors
 regressor_dbscan=$subject"_dbscan_liberal_regressors.csv"
@@ -178,53 +178,36 @@ base_dicer_o=`basename $input .nii.gz`
 dicer_output=$output_folder"/"$base_dicer_o"_dbscan.nii.gz"
 
 printf "\n\nRegressing $input with DiCER signals and clean output is at $dicer_output \n\n\n"	
-python3.6 ${WDIR}/carpetCleaning/vacuum_dbscan.py -f $input_file -db $regressor_dbscan -s $subject -d $folder"/"
+python ${WDIR}/carpetCleaning/vacuum_dbscan.py -f $input_file -db $regressor_dbscan -s $subject -d $folder"/"
 
-# Next stage: do the reporting, all done through "tapestry"
-
-
-export MPLBACKEND="agg"
-
-# Do the cluster re-ordering:
-printf "\n\nPeforming Cluster re-ordering of $input \n\n\n"	
-python3.6 ${WDIR}/fmriprepProcess/clusterReorder.py $tissue_mask '.' $input $folder $subject
+## Next stage: do the reporting, all done through "tapestry"
+#export MPLBACKEND="agg"
+#
+## Do the cluster re-ordering:
+#printf "\n\nPeforming Cluster re-ordering of $input \n\n\n"	
+#python ${WDIR}/fmriprepProcess/clusterReorder.py $tissue_mask '.' $input $folder $subject
 # if $freesurfer;then
 # 	cluster_tissue_ordering=$output_folder"/tmp_dir/"$base_dicer_o"_clusterorder.nii.gz"	
 # else
-cluster_tissue_ordering=$output_folder"/"$base_dicer_o"_clusterorder.nii.gz"	
+#cluster_tissue_ordering=$output_folder"/"$base_dicer_o"_clusterorder.nii.gz"	
 # fi
 
-printf "\n\nPeforming GS re-ordering of $input (again use the mask) \n\n\n"	
-python3.6 ${WDIR}/fmriprepProcess/gsReorder.py -f $input -ts $tissue_mask -of $output_folder"/"$subject_"gsReorder.nii.gz"
-gs_reordering_file=$output_folder"/"$subject_"gsReorder.nii.gz"
+#printf "\n\nPeforming GS re-ordering of $input (again use the mask) \n\n\n"	
+#python ${WDIR}/fmriprepProcess/gsReorder.py -f $input -ts $tissue_mask -of $output_folder"/"$subject_"gsReorder.nii.gz"
+#gs_reordering_file=$output_folder"/"$subject_"gsReorder.nii.gz"
 
 
-printf "\n\nPeforming GMR of $orig \n\n\n"	
-gm_signal=$output_folder"/"$subject"_GMsignal.txt"
-fslmeants -i $input -o $gm_signal
-GMR_output=$output_folder"/"$base_dicer_o"_GMR.nii.gz"
-fsl_regfilt -i $input -d $gm_signal -f 1 -o $GMR_output
+#printf "\n\nPeforming GMR of $orig \n\n\n"	
+#gm_signal=$output_folder"/"$subject"_GMsignal.txt"
+#fslmeants -i $input -o $gm_signal
+#GMR_output=$output_folder"/"$base_dicer_o"_GMR.nii.gz"
+#fsl_regfilt -i $input -d $gm_signal -f 1 -o $GMR_output
 
-
-# Run the automated report:
-printf "\n\nRunning the carpet reports! This is to visualize the data in a way to evaluate the corrections \n\n\n"	
-
-
-
-
-# Here is a way to use confounds in the report, if they are not called then they will NOT appear in the automated report
-if $use_confounds;then
-	python3.6 ${WDIR}/carpetReport/tapestry.py -f $input","$GMR_output","$dicer_output -fl "INPUT,GMR,DICER"  -o $cluster_tissue_ordering,$gs_reordering_file -l "CLUST,GSO" -s $subject -d $output_folder"/" -ts $tissue_mask -reg $output_folder"/"$regressor_dbscan -cf $confounds
-else
-	python3.6 ${WDIR}/carpetReport/tapestry.py -f $input","$GMR_output","$dicer_output -fl "INPUT,GMR,DICER"  -o $cluster_tissue_ordering,$gs_reordering_file -l "CLUST,GSO" -s $subject -d $output_folder"/" -ts $tissue_mask
-fi
-
-# Have to at the end work with vacuuming the original file
 
 
 # Surface niftis!
-if $freesurfer;then
-	printf "\n\n Now using the regression time series and regressing them from the original input \n\n\n"	
-	input=$output_folder"/"$input_file
-	python3.6 ${WDIR}/carpetCleaning/vacuum_dbscan.py -f $orig -db $regressor_dbscan -s $subject -d $folder"/"	
-fi
+#if $freesurfer;then
+#	printf "\n\n Now using the regression time series and regressing them from the original input \n\n\n"	
+#	input=$output_folder"/"$input_file
+#	python ${WDIR}/carpetCleaning/vacuum_dbscan.py -f $orig -db $regressor_dbscan -s $subject -d $folder"/"	
+#fi

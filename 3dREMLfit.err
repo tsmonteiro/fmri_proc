@@ -1,0 +1,4 @@
+*+ WARNING: No -R* output datasets? Skipping REML(a,b) estimation!
+*+ WARNING: No -matrix file! Making up a matrix with one column of 600 1s
+*+ WARNING: ColumnLabels attribute in matrix is missing!?
+*+ WARNING: -matrix file is missing Stim attributes:

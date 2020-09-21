@@ -13,17 +13,21 @@
 # rev_phase.nii  -> 4D EPI acquired with reverse phase [for fieldmap correction]
 SUB=$1
 OUTDIR=$2
-	
-	
+
+
 # CRUNCH Specific Paths
-DICOMDIR_T1=/mnt/hgfs/ssd_tmp/china/raw/t1/
-DICOMDIR_RSN=/mnt/hgfs/ssd_tmp/china/raw/rest/
+DICOMDIR_T1=/home/luna.kuleuven.be/u0101486/workspace/data/CAI_China/Raw/T1/
+DICOMDIR_RSN=/home/luna.kuleuven.be/u0101486/workspace/data/CAI_China/Raw/REST/
 
 if [ ! -d "${OUTDIR}" ]; then
 	mkdir -m 777 -p ${OUTDIR}
 else
 	{
 	rm -f -r ${OUTDIR}/*
+  #rm -f ${OUTDIR}/proc_data_native.nii
+  #rm -f ${OUTDIR}/proc_data_native_fix.nii
+  #rm -f ${OUTDIR}/proc_data_native_fix_d.nii
+  #rm -f -r ${OUTDIR}/FIX
 	} &> /dev/null
 fi
 
@@ -50,10 +54,10 @@ do
 		DICOMDIR_RSN=$DICOMDIR_RSN/$dir
 	fi
 done
-	
 
-dcm2niix_afni -s n -v 2 -p n -o ${OUTDIR} ${DICOMDIR_T1}
-dcm2niix_afni -s n -v 2 -p n -o ${OUTDIR} ${DICOMDIR_RSN}
+
+dcm2niix_afni -s n -v 2 -l n -p n -o ${OUTDIR} ${DICOMDIR_T1}
+dcm2niix_afni -s n -v 2 -l n -p n -o ${OUTDIR} ${DICOMDIR_RSN}
 
 
 
@@ -67,3 +71,7 @@ do
 	mv $F ${OUTDIR}/func_data.nii
 done
 
+for F in "${OUTDIR}/*bold*.json"
+do
+  python ./util/read_slice_timing.py -json ${F} -out ${OUTDIR}/slice_acq.txt
+done

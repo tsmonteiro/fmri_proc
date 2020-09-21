@@ -1,25 +1,20 @@
 #!/usr/bin/env python
 
 
-import os
+
 import argparse
-import sys
+
 
 import nibabel as nib
-from builtins import str
+
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-import nipype.algorithms.confounds as npalg
+
 import nilearn.plotting as nlp
 import nilearn.image as nimg
-import nilearn.signal as sgn
 
-
-from nilearn import datasets
-from nilearn.input_data import NiftiMapsMasker
-from nilearn.connectome import ConnectivityMeasure
 
 from PIL import Image, ImageDraw
 
@@ -246,23 +241,9 @@ plt.rcParams.update({'font.size': 20, 'font.weight':'bold'} )
 # ++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-print('\n\n ===============================================================================================\n\n')
-print('Starting QA')
-print('\n\n ===============================================================================================\n\n')
-
-
-
-
-
-
-# =============================================
-#
-#  7. Normalisation Results
-#
-# =============================================
 
 save_normalisation_plot(args.im1, args.im2, outFile, figDpi=figDpi)
-save_normalisation_gif(args.im1, args.im2, outGFile, thr_top=10, thr_base=0)
+#save_normalisation_gif(args.im1, args.im2, outGFile, thr_top=10, thr_base=0)
 
 
 	

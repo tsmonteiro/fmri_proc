@@ -1,11 +1,11 @@
 #! /bin/bash
 
-AFNI_BYTEORDER=LSB_FIRST	
+AFNI_BYTEORDER=LSB_FIRST
 export AFNI_BYTEORDER
 
 function Usage () {
   cat <<EOF
-  PESTICA_v4 
+  PESTICA_v4
 
   Usage:  run_pestica.sh -d <epi_filename>
  	     -d=dataset: <epi_filename> is the file prefix of
@@ -33,42 +33,42 @@ function Usage () {
              -p=use PMU
 	Two types of PMU data format are supported. a) typical Siemens default pmu
         format, e.g. *.ext, *.resp, *.card files. b) CMRR SMS (MB) EPI physio file,
-	e.g. *.log 
+	e.g. *.log
 	check rw_pmu_siemens.m file when having a trouble to read pmu.
 
-	Note: If you use the truncated EPI data set as an input, e.g. removal of 
-              the first or the last 4 volumes, PMU data and input EPI images do not 
+	Note: If you use the truncated EPI data set as an input, e.g. removal of
+              the first or the last 4 volumes, PMU data and input EPI images do not
               have the same length, and you have to inform it correctly here
 
-        a) default; 
-           rw_pmu_siemens.m assumes the first volume(s) of EPI data is(are) truncated 
+        a) default;
+           rw_pmu_siemens.m assumes the first volume(s) of EPI data is(are) truncated
            as many as the discrepancy of the lengths. Therefore, no input is needed
 
         b) In case of the last N volume removal of EPI set
           Use -t option to inform how many time points of PMU data will be discard
-          
+
           run_pestica.sh -d <epi_filename> -p <Siemens Physio Files Prefix> -t N
 
-   NOTE: if you have un-equilibrated volumes at the start, you have to remove them 
-         before running PESTICA. Most scanners take "dummy" volumes, where the ADCs are 
-         turned off but the RF and gradients are running as normal, for the first ~3 seconds 
-         (modulo TR), but in some scanners this is not so and you can see contrast change 
-         from the 1st to 2nd volumes. Look at your data!  
+   NOTE: if you have un-equilibrated volumes at the start, you have to remove them
+         before running PESTICA. Most scanners take "dummy" volumes, where the ADCs are
+         turned off but the RF and gradients are running as normal, for the first ~3 seconds
+         (modulo TR), but in some scanners this is not so and you can see contrast change
+         from the 1st to 2nd volumes. Look at your data!
 
          Since PESTICA runs temporal ICA, un-equilibrated signals generate bias on estimated PMU
 
          Recommended: 3dvolreg and discard 1st 4:
          3dvolreg -prefix ep2d_pace.moco -base "ep2d_pace[0]" -1Dmatrix_save motion.1D \\
 	          -1Dfile motion.txt -zpad 8 -maxite 60 -heptic "ep2d_pace[4..$]"
-         This produces a 3D+time dataset that is motion corrected and is 4 
-         volumes shorter than the original.  PESTICA estimators seem better if 
+         This produces a 3D+time dataset that is motion corrected and is 4
+         volumes shorter than the original.  PESTICA estimators seem better if
          it is run on the moco'ed data. Next, "run_pestica.sh -d ep2d_pace.moco"
 
-         You can test first volumes for spin saturation with: 
+         You can test first volumes for spin saturation with:
            3dToutcount <epi_filename> | 1dplot -stdin -one
-         Is the first volume much higher than rest? If so, you may need to remove first 
-         several volumes first. If you don't know what this means, consult someone who does know, 
-         this is very important, regression corrections (and analyses) perform poorly 
+         Is the first volume much higher than rest? If so, you may need to remove first
+         several volumes first. If you don't know what this means, consult someone who does know,
+         this is very important, regression corrections (and analyses) perform poorly
          when the data has unsaturated volumes at the start
 
 EOF
@@ -76,11 +76,11 @@ EOF
 }
 
 allstagesflag=1; batchflag=0; pmuflag=0;  stagepmu1234flag=0;
-stage1flag=0; stage2flag=0; stage3flag=0; stage4flag=0; stage5flag=0; 
+stage1flag=0; stage2flag=0; stage3flag=0; stage4flag=0; stage5flag=0;
 reference="9pestica_null_reference_protect9"
 nVolEndCutOff=0  # no EPI volumes at the end were truncated as default
 
-AFNIMATLAB_DIR=/home/fsluser/Documents/pestica4/afni_matlab
+#MATLAB_AFNI_DIR=${MATLAB_AFNI_DIR}
 
 echo nVolEndCutOff=$nVolEndCutOff
 while getopts hd:r:fp:bt:s: opt; do
@@ -137,14 +137,14 @@ done
 
 if [ $pmuflag -eq 1 ]; then
   if [ $allstagesflag -eq 1 ] ; then
-    stagepmu1234flag=1; stage5flag=1; 
+    stagepmu1234flag=1; stage5flag=1;
   fi
   if [ $stage1flag -eq 1 ] | [ $stage2flag -eq 1 ] | [ $stage3flag -eq 1 ] | [ $stage4flag -eq 1 ] ; then
     stagepmu1234flag=1;
   fi
 else
   if [ $allstagesflag -eq 1 ] ; then
-    stage1flag=1; stage2flag=1; stage3flag=1; stage4flag=1; stage5flag=1; 
+    stage1flag=1; stage2flag=1; stage3flag=1; stage4flag=1; stage5flag=1;
   fi
 fi
 
@@ -253,14 +253,14 @@ fi
 echo "*****   Using $epi_mask+orig.HEAD to mask out non-brain voxels"
 
 ### Optional PMU data formatting
-if [ $stagepmu1234flag -eq 1 ] ; then   
+if [ $stagepmu1234flag -eq 1 ] ; then
   echo "Using files with prefix: $pmufileprefix"
   pmufileprefix="../$pmufileprefix"
   # convert PhysioLog files into usable data
-  
+
   echo "matlab $MATLABLINE disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; rw_pmu_siemens('$epi+orig','$pmufileprefix',$nVolEndCutOff); exit;"
   echo "matlab $MATLABLINE disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; rw_pmu_siemens('$epi+orig','$pmufileprefix',$nVolEndCutOff); exit;"  >> pestica_history.txt
-    matlab $MATLABLINE <<<"disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; rw_pmu_siemens('$epi+orig','$pmufileprefix',$nVolEndCutOff); exit;" 
+    matlab $MATLABLINE <<<"disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; rw_pmu_siemens('$epi+orig','$pmufileprefix',$nVolEndCutOff); exit;"
 
   # Get IRFs in data - the cardiac estimators are dithered slightly due to the filtering (we will fix that below...)
   echo "Getting IRFs and correcting data with IRF-RETROICOR"
@@ -304,12 +304,12 @@ if [[ $stage2flag -eq 1 ]] ; then
   if [ ! -f mni.coreg.$epi_mask.1D ] ; then
 
     echo "Coregistration to EPI template"
-    echo 3dAllineate -automask -prefix ./$epi_mask.crg2mni.nii -source $epi_mask+orig -base $PESTICA_VOL_DIR/meanepi_mni.nii -1Dmatrix_save $epi_mask.coreg.mni.1D 
+    echo 3dAllineate -automask -prefix ./$epi_mask.crg2mni.nii -source $epi_mask+orig -base $PESTICA_VOL_DIR/meanepi_mni.nii -1Dmatrix_save $epi_mask.coreg.mni.1D
     echo "3dAllineate -automask -prefix ./$epi_mask.crg2mni.nii -source $epi_mask+orig -base $PESTICA_VOL_DIR/meanepi_mni.nii -1Dmatrix_save $epi_mask.coreg.mni.1D" >> pestica_history.txt
           3dAllineate -nomask  -prefix ./$epi_mask.crg2mni.nii -source $epi_mask+orig -base $PESTICA_VOL_DIR/meanepi_mni.nii -1Dmatrix_save $epi_mask.coreg.mni.1D
 
          cat_matvec $epi_mask.coreg.mni.1D -I -ONELINE > mni.coreg.$epi_mask.1D
-    
+
 #    3dcopy $epi_mask.crg2mni.nii $epi_mask.crg2mni+orig
 #    3drefit -byteorder MSB_FIRST  $epi_mask.crg2mni+orig
 
@@ -347,9 +347,9 @@ if [[ $stage3flag -eq 1 ]] ; then
   echo ""
   echo "NOTE: TR must be set correctly in header for 3D+time dataset - if in doubt, check it and correct it"
   echo "Values given below:"
-  echo "matlab $MATLABLINE addpath $MATLAB_PESTICA_DIR; addpath $AFNIMATLAB_DIR; load('card_raw_${pesticav}.dat'); load('resp_raw_${pesticav}.dat'); card=view_and_correct_estimator(card_raw_${pesticav},'$epi+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_${pesticav},'$epi+orig','r',$batchflag); fp=fopen('card_${pesticav}.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_${pesticav}.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); exit;"
-  echo "matlab $MATLABLINE addpath $MATLAB_PESTICA_DIR; addpath $AFNIMATLAB_DIR;load('card_raw_${pesticav}.dat'); load('resp_raw_${pesticav}.dat'); card=view_and_correct_estimator(card_raw_${pesticav},'$epi+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_${pesticav},'$epi+orig','r',$batchflag); fp=fopen('card_${pesticav}.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_${pesticav}.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); exit;" >> pestica_history.txt
-        matlab $MATLABLINE <<<"addpath $MATLAB_PESTICA_DIR; addpath $AFNIMATLAB_DIR;load('card_raw_${pesticav}.dat'); load('resp_raw_${pesticav}.dat'); disp('Wait, script starting...'); card=view_and_correct_estimator(card_raw_${pesticav},'$epi+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_${pesticav},'$epi+orig','r',$batchflag);  fp=fopen('card_${pesticav}.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_${pesticav}.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 3 Done!'); exit;"
+  echo "matlab $MATLABLINE addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; load('card_raw_${pesticav}.dat'); load('resp_raw_${pesticav}.dat'); card=view_and_correct_estimator(card_raw_${pesticav},'$epi+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_${pesticav},'$epi+orig','r',$batchflag); fp=fopen('card_${pesticav}.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_${pesticav}.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); exit;"
+  echo "matlab $MATLABLINE addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR;load('card_raw_${pesticav}.dat'); load('resp_raw_${pesticav}.dat'); card=view_and_correct_estimator(card_raw_${pesticav},'$epi+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_${pesticav},'$epi+orig','r',$batchflag); fp=fopen('card_${pesticav}.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_${pesticav}.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); exit;" >> pestica_history.txt
+        matlab $MATLABLINE <<<"addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR;load('card_raw_${pesticav}.dat'); load('resp_raw_${pesticav}.dat'); disp('Wait, script starting...'); card=view_and_correct_estimator(card_raw_${pesticav},'$epi+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_${pesticav},'$epi+orig','r',$batchflag);  fp=fopen('card_${pesticav}.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_${pesticav}.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 3 Done!'); exit;"
 fi
 ########### End STAGE 3 ##########
 
@@ -357,9 +357,9 @@ fi
 if [[ $stage4flag -eq 1 ]] ; then
 # PESTICA convert to phase using 3dretroicor
   echo "Running MATLAB-version of RETROICOR with physiological noise fluctuation"
-  echo "matlab  $MATLABLINE addpath $PESTICA_RETROICOR_DIR; addpath $AFNIMATLAB_DIR;card=textread('card_${pesticav}.dat'); resp=textread('resp_${pesticav}.dat'); retroicor_pestica('$epi+orig',card,resp,2,'$epi_mask+orig'); exit"
-  echo "matlab  $MATLABLINE addpath $PESTICA_RETROICOR_DIR; addpath $AFNIMATLAB_DIR;card=textread('card_${pesticav}.dat'); resp=textread('resp_${pesticav}.dat'); retroicor_pestica('$epi+orig',card,resp,2,'$epi_mask+orig'); exit" >> pestica_history.txt
-          matlab  $MATLABLINE <<<"addpath $MATLAB_PESTICA_DIR; addpath $AFNIMATLAB_DIR;card=textread('card_${pesticav}.dat'); resp=textread('resp_${pesticav}.dat'); disp('Wait, script starting...'); retroicor_pestica('$epi+orig',card,resp,2,'$epi_mask+orig'); disp('Stage 4 done!'); exit;"
+  echo "matlab  $MATLABLINE addpath $PESTICA_RETROICOR_DIR; addpath $MATLAB_AFNI_DIR;card=textread('card_${pesticav}.dat'); resp=textread('resp_${pesticav}.dat'); retroicor_pestica('$epi+orig',card,resp,2,'$epi_mask+orig'); exit"
+  echo "matlab  $MATLABLINE addpath $PESTICA_RETROICOR_DIR; addpath $MATLAB_AFNI_DIR;card=textread('card_${pesticav}.dat'); resp=textread('resp_${pesticav}.dat'); retroicor_pestica('$epi+orig',card,resp,2,'$epi_mask+orig'); exit" >> pestica_history.txt
+          matlab  $MATLABLINE <<<"addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR;card=textread('card_${pesticav}.dat'); resp=textread('resp_${pesticav}.dat'); disp('Wait, script starting...'); retroicor_pestica('$epi+orig',card,resp,2,'$epi_mask+orig'); disp('Stage 4 done!'); exit;"
 fi
 ########### End STAGE 4 ###########
 
@@ -370,10 +370,10 @@ if [[ $stage5flag -eq 1 ]] ; then
   echo ""
 
   # run QA on output files
-  echo "matlab $MATLABLINE addpath $MATLAB_PESTICA_DIR; physio_qa('$epi+orig',$pmuflag);" 
+  echo "matlab $MATLABLINE addpath $MATLAB_PESTICA_DIR; physio_qa('$epi+orig',$pmuflag);"
   echo "matlab $MATLABLINE addpath $MATLAB_PESTICA_DIR; physio_qa('$epi+orig',$pmuflag);" >> pestica_history.txt
     matlab $MATLABLINE <<<"addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; disp('Wait, script starting...'); physio_qa('$epi+orig',$pmuflag); disp('Done!'); exit;"
-  
+
   echo " *******************************************************"
   echo " *******************************************************"
   echo " WARNING, AFNI IS ABOUT TO STEAL WINDOW FOCUS!!"
@@ -391,7 +391,7 @@ if [[ $stage5flag -eq 1 ]] ; then
     zpos=40
     montstr='6x6'
   elif [ $zdim -gt 50 ]; then
-    zpos=30  
+    zpos=30
     montstr='5x5'
   else
     zpos=20
@@ -411,7 +411,7 @@ if [[ $stage5flag -eq 1 ]] ; then
     snamec=pestica_card_coupling_overlay
     snamer=pestica_resp_coupling_overlay
   fi
- 
+
   if [ $pmuflag -eq 1 ] ; then
     thresh=`head -n 1 coupling_pmu_thresholds.txt`
     threshr=`tail -n 1 coupling_pmu_thresholds.txt`
@@ -431,7 +431,7 @@ if [[ $stage5flag -eq 1 ]] ; then
          -com "SET_OVERLAY A."$inamer" 1 0"        -com 'OPEN_PANEL A.Define_Overlay' -com 'SET_FUNC_VISIBLE A.+' \
          -com "SET_IJK A 64 64 $zpos" -com 'SET_XHAIRS A.OFF' -com "SAVE_PNG A.axialimage $snamer" \
          -com 'QUIT' -dset $fname+orig $inamec+orig $inamer+orig >> afnilogfile.txt 2>&1
-  
+
   # remove copied EPI file inside PESTICA subdir, as we should be finished and don't need to take up the extra space
   rm $epi+orig.????
   echo "rm $epi+orig.???? (temp file removal inside $epi_pestica only)" >> pestica_history.txt
@@ -447,4 +447,3 @@ echo "" >> $epi_pestica/pestica_history.txt
 # This is necessary because MATLAB likes to break the terminal for some reason.
 # but it's commented here because it doesn't like to run in the background.
 #reset
-

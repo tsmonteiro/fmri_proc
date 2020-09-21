@@ -11,12 +11,12 @@ import numpy as np
 
 parser = argparse.ArgumentParser(description='Save QA check Plots')
 
-# Required options                    
+# Required options
 reqoptions = parser.add_argument_group('Required arguments')
 
 reqoptions.add_argument('-t', '-tr', dest="TR", required=True, help='Time to repeat' )
 reqoptions.add_argument('-n', '-nsl', dest="NSL", required=True, help='Number of acquisition slices' )
-reqoptions.add_argument('-a', '-acq', dest="acq", required=True, help='Acquisition type: [1: sequantial], 2: interleaved [NOT IMPLEMENTED YET]' )
+reqoptions.add_argument('-a', '-acq', dest="acq", required=True, help='Acquisition type: [1: sequantial], 2: interleaved [NOT IMPLEMENTED YET], 3: parallel' )
 reqoptions.add_argument('-o', '-out', dest="outFile", required=True, help='Output file' )
 
 
@@ -30,14 +30,44 @@ acq = int(args.acq)
 
 
 if TR > 10:
-	# Likely, this was given in ms
-	print('Assuming TR was given in milliseconds. If this is not the case, the script needs to be changed.')
-	TR = TR / 1000
+    # Likely, this was given in ms
+    print('Assuming TR was given in milliseconds. If this is not the case, the script needs to be changed.')
+    TR = TR / 1000
 
 if acq == 1:
-	timing = np.linspace(0, TR, nSlices+1)
-	timing = timing[0:nSlices]	
+    timing = np.linspace(0, TR, nSlices+1)
+    timing = timing[0:nSlices]
+    np.savetxt(outFile, np.transpose(timing), fmt='%.3f')
 
-np.savetxt(outFile, timing, fmt='%.3f')
+if acq == 20:
 
+    dt = 1/TR
 
+    timing1 = np.linspace(0, TR, int((nSlices)/2))
+    timing2 = np.linspace(dt, TR, int((nSlices)/2))
+
+    timing = np.concatenate((timing1, timing2 ))
+    #timing = (timing*(TR*1000)).astype(int) # As int ms
+
+    np.savetxt(outFile, np.transpose(timing), fmt='%.3f')
+
+if acq == 2:
+
+    dt = 1/TR
+
+    timing1 = np.linspace(0, TR-dt, int((nSlices)/2))
+    timing2 = np.linspace(dt, TR, int((nSlices)/2))
+
+    timing = np.concatenate((timing1, timing2 ))
+    #timing = (timing*(TR*1000)).astype(int) # As int ms
+
+    np.savetxt(outFile, np.transpose(timing), fmt='%.3f')
+
+if acq == 3:
+    # Assuming here that it was ascending, 2 slices at a times
+
+    timing = np.linspace(0, TR- (TR/(nSlices/3)), int((nSlices/3))) #np.linspace(0, TR-(1/TR), int((nSlices/3)))
+    timing = np.concatenate((timing, timing,timing))
+    timing = (timing*(TR*1000)).astype(int) # As int ms
+
+    np.savetxt(outFile, timing.reshape([-1,1]), fmt='%d', delimiter=',')

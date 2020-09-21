@@ -14,16 +14,22 @@
 # TODO CORRIGIR!
 SUB=$1
 OUTDIR=$2
-	
-	
+
+
+
 # CRUNCH Specific Paths
-DICOMDIR_A=/mnt/hgfs/ORIGDATA/Day_A/
+DICOMDIR_A=/media/u0101486/MONTEIRO/Day_A/
+P2NII_PATH=/home/luna.kuleuven.be/u0101486/workspace/fmri_proc/import_scripts/
+
 
 if [ ! -d "${OUTDIR}" ]; then
 	mkdir -m 777 ${OUTDIR}
 else
 	{
-	rm -f -r ${OUTDIR}/*
+	#rm -f -r ${OUTDIR}/*
+  rm -f -r ${OUTDIR}/*
+  rm -f -r ${OUTDIR}/FIX
+  rm -f -r ${OUTDIR}/can_melodic.ic
 	} &> /dev/null
 fi
 
@@ -59,7 +65,7 @@ done
 #
 #done
 
-	
+
 {
 for F in "${DICOMDIR_A}/*TFE*.PAR"
 do
@@ -89,13 +95,13 @@ do
 	FNAME="$(basename -- $F)"
 	RNUM=$(echo $FNAME| rev |cut -d'.' -f 2 | cut -d'_' -f 2 | rev )
 	{
-	cp $F ${OUTDIR} 
+	cp $F ${OUTDIR}
 	} &> /dev/null
 done
 } || {
 	for F in ${DICOMDIR_A}/*RSN*.PAR
 	do
-	{	
+	{
 	dcm2niix_afni -s y -v 2 -p n -f '%s_%f_%p_%s' -o ${OUTDIR} $F
 	} &> /dev/null
 	done
@@ -103,7 +109,7 @@ done
 
 
 for F in ${OUTDIR}/*RSN*.nii
-do			
+do
 	mv $F ${OUTDIR}/func_data.nii
 done
 
@@ -112,7 +118,7 @@ for F in "${DICOMDIR_A}/*fieldmap*.PAR"
 do
 
 	if test -f ${F}; then
-		python3.6 -W ignore /home/fsluser/Documents/rs_proc/import_scripts/par2nii.py -i $F -o ${OUTDIR}/fmap.nii
+		python -W ignore ${P2NII_PATH}/par2nii.py -i $F -o ${OUTDIR}/fmap.nii
 		HAS_FMAP=1
 
 		{
@@ -139,5 +145,3 @@ do
 		touch ${OUTDIR}/no_fmap.txt
 	fi
 done
-
-

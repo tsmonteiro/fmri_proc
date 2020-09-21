@@ -1,6 +1,6 @@
 #!/bin/bash
 
-AFNI_BYTEORDER=LSB_FIRST	
+AFNI_BYTEORDER=LSB_FIRST
 export AFNI_BYTEORDER
 
 function Usage () {
@@ -102,7 +102,7 @@ let tcount=$tdim-1
 let MBcount=$SMSfactor-1
 
 do_inplane_proc()
-  {	
+  {
 	t=${1}
 	nvox=${2}
 	tempslmoco=${3}
@@ -110,10 +110,10 @@ do_inplane_proc()
 	MBcount=${5}
 	zmbdim=${6}
 	CDIR=${7}
-	
+
 
 	    if [ $nvox -gt 1000 ] ; then
-	      3dWarpDrive -affine_general -cubic -final quintic -maxite 300 -thresh 0.005 \
+	      3dWarpDrive -shift_rotate_scale -cubic -final quintic -maxite 300 -thresh 0.005 \
 		          -prefix ${CDIR}/$tempslmoco/__temp_9999_${t}.hdr \
 		          -base "$tempslmoco/__temp_slc_mean+orig"  \
 		          -input "$tempslmoco/__temp_slc+orig[$t]" \
@@ -154,7 +154,7 @@ for z in $(seq 0 $zcount) ; do
     3dZcutup -keep $k $k -prefix $tempslmoco/__temp_slc_mean_$mb   $tempslmoco/__temp_vol_mean+orig > /dev/null 2>&1
     3dZcutup -keep $k $k -prefix $tempslmoco/__temp_slc_weight_$mb $tempslmoco/__temp_vol_weight+orig > /dev/null 2>&1
   done
- 
+
   if [ $SMSfactor -gt 1 ]; then
     3dZcat -prefix $tempslmoco/__temp_slc        $tempslmoco/__temp_slc_?+orig.HEAD > /dev/null 2>&1
     3dZcat -prefix $tempslmoco/__temp_slc_mean   $tempslmoco/__temp_slc_mean_?+orig.HEAD > /dev/null 2>&1
@@ -165,20 +165,20 @@ for z in $(seq 0 $zcount) ; do
     3dcopy $tempslmoco/__temp_slc_weight_0+orig $tempslmoco/__temp_slc_weight+orig > /dev/null 2>&1
   fi
   rm $tempslmoco/__temp_slc_?+orig.???? $tempslmoco/__temp_slc_mean_?+orig.???? $tempslmoco/__temp_slc_weight_?+orig.????
-  
+
   if [ $SMSfactor -gt 1 ]; then
     echo "doing slices $zsimults at once"
   else
     echo "doing slice $zsimults"
-  fi 
+  fi
 
   # test for minimum number of nonzero voxels:
   nvox=`3dBrickStat -non-zero -count $tempslmoco/__temp_slc_weight+orig`
 
-  
+
 
   CDIR=`pwd`
-  parallel -j6 --line-buffer do_inplane_proc ::: $(seq 0 ${tcount}) ::: ${nvox} ::: ${tempslmoco} ::: ${z} ::: ${MBcount} ::: ${zmbdim} ::: ${CDIR}
+  parallel -j12 --line-buffer do_inplane_proc ::: $(seq 0 ${tcount}) ::: ${nvox} ::: ${tempslmoco} ::: ${z} ::: ${MBcount} ::: ${zmbdim} ::: ${CDIR}
 
 #  for t in $(seq 0 $tcount) ; do
 #    if [ $nvox -gt 1000 ] ; then
@@ -202,11 +202,11 @@ for z in $(seq 0 $zcount) ; do
 #    done
 #   rm ./$tempslmoco/__temp_9999.*
 #  done
-  
+
   for mb in $(seq 0 $MBcount) ; do
     let k=$mb*$zmbdim+$z
     3dTcat -prefix $tempslmoco/__temp_`printf %04d $k`.mocoinplane $tempslmoco/__temp_`printf %04d $k`.????.hdr > /dev/null 2>&1
-    rm $tempslmoco/__temp_`printf %04d $k`.????.??? 
+    rm $tempslmoco/__temp_`printf %04d $k`.????.???
   done
   rm  $tempslmoco/__temp_slc*
 done
@@ -231,4 +231,3 @@ taxis_offset=`3dAttribute TAXIS_OFFSETS $inputdata`
 # rm $tempslmoco/__temp_*
 echo "finished slicewise in-plane motion correction"
 echo "Exiting"
-

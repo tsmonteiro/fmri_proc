@@ -11,16 +11,19 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Running aCompCor')
 
-# Required options                    
+# Required options
 reqoptions = parser.add_argument_group('Required arguments')
 reqoptions.add_argument('-d', '-dir', dest="dir", required=True, help='Directory name' )
 reqoptions.add_argument('-t', '-tr', dest="tr", required=True, help='Repetition Time' )
 reqoptions.add_argument('-i', '-in', dest="inFile", required=True, help='Repetition Time' )
 
+reqoptions.add_argument('-aout',  dest="acomp_out", default='acompcor', required=False, help='Fname acompcor' )
+reqoptions.add_argument('-tout',  dest="tcomp_out", default='tcompcor', required=False, help='Fname acompcor' )
+
 reqoptions.add_argument('-n', '-nuis', dest="nuisFile", required=True, help='Nuisance tissue mask [same space as functional, CSFeroded+WMeroded]' )
 reqoptions.add_argument('-b', '-bmsk', dest="mskFile", required=True, help='Brain mask [same space as functional]' )
 
-reqoptions.add_argument('-v', '-var', dest="vart", required=False, help='Variance threshold to select components (default 50%)' )
+reqoptions.add_argument('-v', '-var', dest="vart", required=False, help='Variance threshold to select components (default 25%)' )
 
 args = parser.parse_args()
 
@@ -31,17 +34,19 @@ vart = args.vart
 
 if not vart:
 	vart = 0.25
+else:
+    vart = float(vart)
 
 
-inFile   = sessDir + '/' + args.inFile
-nuisFile  = sessDir + '/' + args.nuisFile
-mskFile  = sessDir + '/' + args.mskFile
+inFile   = args.inFile
+nuisFile  =  args.nuisFile
+mskFile  =  args.mskFile
 
-ofileN = sessDir + '/acompcor.txt'
-ometafileN = sessDir + '/acompcor_meta.txt'
+ofileN = sessDir + '/' + args.acomp_out + '.txt'
+ometafileN = sessDir + '/' + args.acomp_out + '_meta.txt'
 
-ofilet  = sessDir + '/tcompcor.txt'
-ometafilet  = sessDir + '/tcompcor_meta.txt'
+ofilet  = sessDir + '/' + args.tcomp_out + '.txt'
+ometafilet  = sessDir + '/' + args.tcomp_out + '_meta.txt'
 
 
 ccinterface = npalg.CompCor()
@@ -53,7 +58,7 @@ ccinterface.inputs.save_metadata = ometafileN
 ccinterface.inputs.regress_poly_degree = 1
 ccinterface.inputs.components_file = ofileN
 ccinterface.inputs.repetition_time = tr
-ccinterface.inputs.high_pass_cutoff = 100
+ccinterface.inputs.high_pass_cutoff = 200
 
 ccinterface.run()
 
@@ -62,11 +67,11 @@ ccinterface.run()
 
 tccinterface = npalg.TCompCor()
 tccinterface.inputs.realigned_file = inFile
-tccinterface.inputs.percentile_threshold = 0.02
+tccinterface.inputs.percentile_threshold = 0.05
 tccinterface.inputs.mask_files = mskFile
 tccinterface.inputs.variance_threshold = vart
 tccinterface.inputs.pre_filter = 'polynomial'
-tccinterface.inputs.regress_poly_degree = 1
+tccinterface.inputs.regress_poly_degree = 2
 tccinterface.inputs.components_file = ofilet
 tccinterface.inputs.save_metadata = ometafilet
 tccinterface.inputs.repetition_time = tr

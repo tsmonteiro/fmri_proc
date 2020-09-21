@@ -5,6 +5,9 @@ import os
 import argparse
 import sys
 
+import matplotlib.colors as mcolors
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 import nibabel as nib
 from builtins import str
 
@@ -16,7 +19,7 @@ import nilearn.plotting as nlp
 import nilearn.image as nimg
 import nilearn.signal as sgn
 
-
+import nibabel as nib
 from nilearn import datasets
 from nilearn.input_data import NiftiLabelsMasker
 from nilearn.input_data import NiftiMapsMasker
@@ -84,6 +87,92 @@ def calc_dist_matrix(coords):
 	return distMat
 
 
+def plot_lg_matrix(matrix, cmap='RdBu_r', ax=None, colorbar=True, ylabel=True, xlabel=True, vmin=-5, vmax=5, cbarlabel='Z Score'):
+
+    if not ax == None:
+        plt.sca(ax)
+
+    colors1 = plt.cm.BuPu_r(np.linspace(0., 1, 256))
+    colors2 = plt.cm.afmhot_r(np.linspace(0, 1, 256))
+
+    # combine them and build a new colormap
+    colors = np.vstack((colors1, colors2))
+    mymap  = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
+
+    im = plt.imshow( matrix, vmin=vmin, vmax=vmax, cmap=mymap )
+
+
+    netNames = ['L Visual', 'L Somatomotor', 'L Dorsal Attention', 'L Ventral Attention',
+                'L Limbic', 'L Control', 'L DMN', 'L Frontoparietal',
+                'R Visual', 'R Somatomotor', 'R Dorsal Attention', 'R Ventral Attention',
+                'R Limbic', 'R Control', 'R DMN', 'R Frontoparietal',
+                'L Non-Cortical Regions', 'R Non-Cortical Regions']
+
+    netL1    = [0,23,58,84,107,119,147,193,199,222,257,283,311,323,356,389,399,426,452]
+    prev     = 0
+    xticks   = []
+    for d in netL1:
+        gray   = 0.5
+        gAlpha = 0.8
+
+        xticks.append(prev + (d-prev)/2)
+
+        plt.plot([0,452],[d,d], color=(gray,gray,gray,gAlpha), lw=1)
+        plt.plot([0,452],[prev,prev], color=(gray,gray,gray,gAlpha), lw=1)
+        plt.plot([d,d], [0,452], color=(gray,gray,gray,gAlpha), lw=1)
+        plt.plot([prev,prev],[0,452], color=(gray,gray,gray,gAlpha), lw=1)
+        prev = d
+
+
+    prev = 0
+
+    for d in netL1:
+        plt.plot([prev,d],[d,d], 'k', lw=3)
+        plt.plot([prev,d],[prev,prev], 'k', lw=3)
+        plt.plot([d,d],[prev,d], 'k', lw=3)
+        plt.plot([prev,prev],[prev,d], 'k', lw=3)
+        prev = d
+
+    plt.plot([0,452],[199,199], 'k', lw=3)
+    plt.plot([199,199],[0,452], 'k', lw=3)
+
+    plt.plot([0,452],[399,399], 'k', lw=3)
+    plt.plot([399,399],[0,452], 'k', lw=3)
+    if xlabel == True:
+        plt.xticks(xticks[1:], netNames, fontsize=14, rotation=90 )
+    else:
+        plt.xticks([] )
+
+
+    if ylabel == True:
+        plt.yticks(xticks[1:], netNames, fontsize=14 )
+    else:
+        plt.yticks([] )
+
+    ax = plt.gca()
+
+    ax.xaxis.set_ticks_position('bottom')
+
+
+    for axis in ['left', 'bottom']:
+        ax.spines[axis].set_linewidth(3)
+
+    for axis in ['top', 'right', 'left', 'bottom']:
+        ax.spines[axis].set_linewidth(0)
+
+    plt.xlim([-1,453])
+    plt.ylim([453,-1])
+
+    if colorbar == True:
+        #cbar = plt.colorbar()
+        #cbar.ax.set_ylabel(cbarlabel)
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.15)
+
+        cbar = plt.colorbar(im, cax=cax)
+        cbar.ax.set_ylabel(cbarlabel)
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++
 #
@@ -94,279 +183,157 @@ def calc_dist_matrix(coords):
 
 parser = argparse.ArgumentParser(description='Save QA check Plots')
 
-# Required options                    
+# Required options
 reqoptions = parser.add_argument_group('Required arguments')
 
-reqoptions.add_argument('-o', '-out', dest="outDir", required=True, help='Directory where images are to be saved' )
-reqoptions.add_argument('-a', '-in', dest="inDir", required=True, help='Dir where EPI + masks are stored [MNI SPACE]' )
-reqoptions.add_argument('-x', '-outf', dest="outFname", required=False, default='fc_mat', help='Name of the output plot' )
+reqoptions.add_argument( '-out', dest="outDir", required=True, help='Directory where images are to be saved' )
+reqoptions.add_argument( '-in', dest="inDir", required=True, help='Dir where EPI + masks are stored [MNI SPACE]' )
+reqoptions.add_argument( '-outf', dest="outFname", required=False, default='fc_mat', help='Name of the output plot' )
 
 
-reqoptions.add_argument('-f', '-fname', dest="fname", required=False, default='proc_data_MNI2mm.nii', help='Name of functional EPI file in MNI space' )
+reqoptions.add_argument( '-fname', dest="fname", required=False, default='proc_data_MNI2mm.nii', help='Name of functional EPI file in MNI space' )
 
-reqoptions.add_argument('-g', '-cov1', dest="cov1", required=False, default=None, help='File containing nuisance covariates' )
-reqoptions.add_argument('-y', '-cov2', dest="cov2", required=False, default=None, help='File containing nuisance covariates' )
-reqoptions.add_argument('-j', '-cov3', dest="cov3", required=False, default=None, help='File containing nuisance covariates' )
-reqoptions.add_argument('-k', '-cov4', dest="cov4", required=False, default=None, help='File containing nuisance covariates' )
-
-reqoptions.add_argument('-t', '-tr', dest="tr", required=True,  help='TR' )
-
-reqoptions.add_argument('-u', '-high', dest="high", required=False, default=None, help='Highpass cutoff' )
-reqoptions.add_argument('-l', '-low', dest="low", required=False, default=None, help='Low-pass cutoff' )
+reqoptions.add_argument( '-TR', dest="TR", required=False, default=1.0, help='Name of functional EPI file in MNI space' )
 
 
-reqoptions.add_argument('-vmin', dest="vmin", required=False, default=-0.8, help='Highpass cutoff' )
-reqoptions.add_argument('-vmax', dest="vmax", required=False, default=0.8, help='Low-pass cutoff' )
+plotoptions = parser.add_argument_group('Plot arguments')
+# Plot options
+plotoptions.add_argument('-vmin', dest="vmin", required=False, default=-0.8, help='Highpass cutoff' )
+plotoptions.add_argument('-vmax', dest="vmax", required=False, default=0.8, help='Low-pass cutoff' )
+plotoptions.add_argument('-d', '-dpi', dest="dpi", required=False, default=120, help='Saved figure DPI' )
 
-reqoptions.add_argument('-d', '-dpi', dest="dpi", required=False, default=120, help='Saved figure DPI' )
+
+plotoptions.add_argument('-atlas', dest="atlas", required=True, help='Saved figure DPI' )
+plotoptions.add_argument('-atlas_name', dest="atlasName", required=True, help='Saved figure DPI' )
+plotoptions.add_argument('-dist', dest="distMat", required=False, default=None, help='Saved figure DPI' )
+plotoptions.add_argument('-labels', dest="labels", required=False, default=None, help='Saved figure DPI' )
 
 
 args = parser.parse_args()
 
-
+labels = args.labels
 outDir = args.outDir
 inDir = args.inDir
+#TODO Add labels
+outFileFC  = outDir + '/' + args.outFname + '_' + args.atlasName
 
-outFile = outDir + '/' + args.outFname
-outFileMsdl = outDir + '/' + args.outFname + '_msdl'
+outFileFCMat  = outDir + '/' + args.outFname + '_' + args.atlasName + '.txt'
+outFileFCMat2  = outDir + '/' + args.outFname + '_' + args.atlasName + '_node.txt'
 outFileCorr = outDir + '/' + args.outFname + '_corr'
-outFileHist = outDir + '/' + args.outFname + '_hist' 
+outFileHist = outDir + '/' + args.outFname + '_hist'
+outFileHistD = outDir + '/' + args.outFname + '_hist_dist'
 
-funcImgFile = inDir + '/' + args.fname 
+funcImgFile = inDir + '/' + args.fname
 
-tr = float(args.tr)
-
-if tr > 10:
-	tr = tr / 1000
-
-if not args.low == None:
-	lpCutoff=float(args.low)
-else:
-	lpCutoff = None
-
-if not args.high == None:
-	hpCutoff=float(args.high)
-else:
-	hpCutoff = None
-
+TR = float(args.TR)
 # PNG resolution of the saved file
 figDpi=int(args.dpi)
-
-
-nuis = None
-
 
 vmin = float(args.vmin)
 vmax = float(args.vmax)
 
-if args.cov1 != None:
-	nuis = load_nuis(inDir + '/' + args.cov1)
-
-if args.cov2 != None:
-	nuis = np.concatenate((nuis, load_nuis(inDir + '/' + args.cov2)), axis=1)
-
-if args.cov3 != None:
-	nuis = np.concatenate((nuis, load_nuis(inDir + '/' + args.cov3)), axis=1)
-
-if args.cov4 != None:
-	nuis = np.concatenate((nuis, load_nuis(inDir + '/' + args.cov4)), axis=1)
-
 # Font size and weight for ALL plots
 plt.rcParams.update({'font.size': 20, 'font.weight':'bold'} )
 
+# low_pass=0.1, smoothing_fwhm=5
+masker   = NiftiLabelsMasker(labels_img=args.atlas, standardize=True, resampling_target=None,
+                             t_r=TR, high_pass=0.01, low_pass=0.15, smoothing_fwhm=None)
+signal   = masker.fit_transform(funcImgFile)
+
+nScans   = signal.shape[0]
 
 
 
-#atlas = datasets.fetch_atlas_msdl()
-atlas = datasets.fetch_atlas_schaefer_2018()
-atlasFname = atlas.maps #atlas['maps']
-labels = atlas.labels #atlas['labels']
+corrMeas = ConnectivityMeasure(kind='correlation')
+
+corrMat  = corrMeas.fit_transform([signal])[0]
 
 
-atlasMsdl = datasets.fetch_atlas_msdl()
-msdlFname = atlasMsdl['maps']
-msdlLabels = atlasMsdl['labels']
-
-masker = NiftiLabelsMasker(labels_img=atlasFname, standardize=False)
-maskerMsdl = NiftiMapsMasker(maps_img=msdlFname, standardize=False)
-signal = masker.fit_transform(funcImgFile)
-signalMsdl = maskerMsdl.fit_transform(funcImgFile)
-
-
-signal = sgn.clean(signal, low_pass=lpCutoff, high_pass=hpCutoff, t_r=tr, confounds=nuis)
-signalMsdl = sgn.clean(signalMsdl, low_pass=lpCutoff, high_pass=hpCutoff, t_r=tr, confounds=nuis)
-
-corrMeas = ConnectivityMeasure(kind='correlation', discard_diagonal=True)
-corrMat = corrMeas.fit_transform([signal])[0]
-corrMatMsdl = corrMeas.fit_transform([signalMsdl])[0]
 
 n1,n2=corrMat.shape
 
 for n in range(n1):
 	corrMat[n,n] =  0
 
-fig = plt.figure(figsize=(20,20), dpi=figDpi, facecolor='w', edgecolor='k')
 
-netLen = np.zeros((14,1))
-
-for l in atlas.labels:
-	if 'Vis' in str(l):
-		i = 0 
-
-	if 'SomMot' in str(l):
-		i = 1
-
-	if 'DorsAttn' in str(l):
-		i = 2
-
-	if 'SalVentAttn' in str(l):
-		i = 3
+atlas=nib.load(args.atlas)
+atlas=atlas.get_fdata()
+x,y,z=atlas.shape
+atlas[np.where(np.isnan(atlas))]=0
+uNodes=np.unique(atlas.reshape((x*y*z)))
+np.savetxt(outFileFCMat2, uNodes, fmt='%d')
 
 
-	if 'Limbic' in str(l):
-		i = 4
-
-	if 'Cont' in str(l):
-		i = 5
-
-	if 'Default' in str(l):
-		i = 6
-
-	if 'RH' in str(l):
-		i += 7
-	
-	netLen[i] += 1
-
-prev = 0
-xticks = []
-
-# Notation to create a list with 400 empty string elements
-labs = [''] * 400 
-netNames = list(['Left Visual', 'Left Somatomotor', 'Left Dorsal Attention', 'Left Sal/Vent Attention', 'Left Limbic', 'Left Control', 'Left DMN', 
-'Right Visual', 'Right Somatomotor', 'Right Dorsal Attention', 'Right Sal/Vent Attention', 'Right Limbic', 'Right Control', 'Right DMN'])
-
-for n in range(len(netLen)):
-	xtick = netLen[n]/2. + prev    
-	xticks.append(xtick)
-
-	prev += netLen[n]
-	labs[int(xtick)] = netNames[n]
-
-
-
-nlp.plot_matrix(corrMat, vmin=vmin, vmax=vmax, labels=labs, grid=False, auto_fit=True, colorbar=True, figure=fig, cmap='cold_white_hot')
-
-prev = 0
-for n in range(len(netLen)):
-	x0 = prev
-	x = netLen[n] + prev
-
-	plt.plot([x0,x0], [x0,x], color='black', linewidth=3)	
-	plt.plot([x,x], [x0,x], color='black', linewidth=3)
-	plt.plot([x0,x], [x0,x0], color='black', linewidth=3)
-	plt.plot([x0,x], [x,x], color='black', linewidth=3)
-
-	prev += netLen[n]
-
-plt.savefig(outFile)
-
-
-
-# Saving MSDL
-n1,n2=corrMatMsdl.shape
-
-for n in range(n1):
-	corrMatMsdl[n,n] =  0
+print('Writing ' + outFileFCMat)
+np.savetxt(outFileFCMat, corrMat, fmt='%.8f')
 
 fig = plt.figure(figsize=(20,20), dpi=figDpi, facecolor='w', edgecolor='k')
-nlp.plot_matrix(corrMatMsdl, vmin=vmin, vmax=vmax, labels=msdlLabels, grid=True, auto_fit=True, colorbar=True, figure=fig, cmap='cold_white_hot')
-plt.savefig(outFileMsdl)
 
+plot_lg_matrix(corrMat, cmap='RdBu_r', ax=None, colorbar=True, ylabel=True, xlabel=True, vmin=vmin, vmax=vmax, cbarlabel='r')
 
-np.savetxt(outDir + '/' + args.outFname + '_correlation_matrix.txt', corrMat, fmt='%.5f'  )
-np.savetxt(outDir + '/' + args.outFname + '_correlation_matrix_msdl.txt', corrMatMsdl, fmt='%.5f'  )
+#if labels == None:
+#    nlp.plot_matrix(corrMat, vmin=vmin, vmax=vmax, grid=False, auto_fit=True, colorbar=True, figure=fig, cmap='jet')
+#else:
+#    nlp.plot_matrix(corrMat, vmin=vmin, vmax=vmax, grid=False, auto_fit=True, colorbar=True, labels=labels, figure=fig, cmap='jet')
 
+plt.savefig(outFileFC)
 
-nNodes = len(atlasMsdl.region_coords)
-distMat = calc_dist_matrix(atlasMsdl.region_coords)
+np.savetxt(outFileFCMat, corrMat, fmt='%.5f'  )
 
-distVec = np.reshape(distMat, (nNodes*nNodes, 1))
-corrVec = np.reshape(corrMatMsdl, (nNodes*nNodes, 1))
+# SALVAR LISTA DE NOS UNICOS!!
+plt.close('all')
 
-corrVec = corrVec[distVec>0]
-distVec = distVec[distVec>0]
+fig = plt.figure(figsize=(20,20), dpi=figDpi, facecolor='w', edgecolor='k')
 
+fcs = []
+for i in range(corrMat.shape[0]):
+    for j in range(corrMat.shape[1]):
+        if j > i:
+            fcs.append( corrMat[i,j] )
+import seaborn as sns
+sns.distplot(fcs, norm_hist=True, bins=100, color = 'darkblue',
+             hist_kws={'edgecolor':'black'},
+             kde_kws={'linewidth': 4, 'color':'black'})
 
-fig = plt.figure(figsize=(16,12), dpi=figDpi, facecolor='w', edgecolor='k')
+plt.plot([0,0],[0, 3], lw=3, color=(0,0,0))
+#plt.hist(fcs, bins=np.linspace(-1,1,200))
 
-ax = fig.add_subplot(111)
+ax = plt.gca()
 
-x = np.array(distVec)
-y = np.array(corrVec)
+for axis in ['left', 'bottom']:
+    ax.spines[axis].set_linewidth(3)
 
-
-
-y_pred,m,c = least_sq(x,y)
-
-r = np.corrcoef(x,y)
-plt.text(0.05, -0.030, 'r = %.3f' % r[0,1], bbox=dict(facecolor='white', alpha=0.5) )
-
-plt.plot(x, y_pred, '-', linewidth=3, color=(0.2,0.2,0.7,0.8))
-
-
-
-ax.axvline(c='grey', lw=1)
-ax.axhline(c='grey', lw=1)
-
-
-ax.scatter(x, y, s=10, c='k' )
-ax.scatter(np.mean(x), np.mean(y), c='b', s=250, marker='x')
-
-plt.ylabel('FC [correlation]')
-plt.xlabel('ROI-to-ROI Distance [mm]')
-
-plt.savefig(outFileCorr)
-
-
-
-# Plot histogram
-fig = plt.figure(figsize=(16,12), dpi=figDpi, facecolor='w', edgecolor='k')
-#plt.hist(corrVec, bins=30, density=True, histtype='bar')
-
-# the histogram of the data
-n, bins, patches = plt.hist(corrVec, bins=50, density=True, histtype='bar', linestyle='-',edgecolor=(.2,.2,.5),facecolor=(.6,.6,1),range=(-1,1))
-
-mu = np.mean(corrVec)
-sigma = np.std(corrVec)
-
-# add a 'best fit' line
-y = ((1 / (np.sqrt(2 * np.pi) * sigma)) * np.exp(-0.5 * (1 / sigma * (bins - mu))**2))
-bin1 = mu-sigma
-bin2 = mu-2*sigma
-bin3 = mu-3*sigma
-y1 = ((1 / (np.sqrt(2 * np.pi) * sigma)) * np.exp(-0.5 * (1 / sigma * (bin1 - mu))**2))
-y2 = ((1 / (np.sqrt(2 * np.pi) * sigma)) * np.exp(-0.5 * (1 / sigma * (bin2 - mu))**2))
-y3= ((1 / (np.sqrt(2 * np.pi) * sigma)) * np.exp(-0.5 * (1 / sigma * (bin3 - mu))**2))
-plt.plot(bins, y, linestyle='-', color=(0,0,0.4),linewidth=3)
-
-plt.plot([mu, mu],[0, np.amax(y)], color=(0,0,0.4), linestyle='--', linewidth=3 )
-plt.plot([mu-sigma, mu-sigma],[0, y1], color=(0,0,0.4), linestyle='--', linewidth=3 )
-plt.plot([mu+sigma, mu+sigma],[0, y1], color=(0,0,0.4), linestyle='--', linewidth=3 )
-
-plt.plot([mu-2*sigma, mu-2*sigma],[0, y2], color=(0,0,0.4), linestyle='--', linewidth=3 )
-plt.plot([mu+2*sigma, mu+2*sigma],[0, y2], color=(0,0,0.4), linestyle='--', linewidth=3 )
-
-plt.plot([mu-3*sigma, mu-3*sigma],[0, y3], color=(0,0,0.4), linestyle='--', linewidth=3 )
-plt.plot([mu+3*sigma, mu+3*sigma],[0, y3], color=(0,0,0.4), linestyle='--', linewidth=3 )
-
-
-
+for axis in ['top', 'right']:
+    ax.spines[axis].set_linewidth(0)
+plt.xlim([-1,1])
 plt.savefig(outFileHist)
+plt.close('all')
+
+#%%
 
 
-
-
-np.savetxt(outDir + '/' + args.outFname + '_correlation_vector.txt', corrVec, fmt='%.3f'  )
-np.savetxt(outDir + '/' + args.outFname + '_distance_vector.txt', distVec, fmt='%.3f'  )
-np.savetxt(outDir + '/' + args.outFname + '_correlation_matrix.txt', corrMat, fmt='%.3f'  )
-np.savetxt(outDir + '/' + args.outFname + '_correlation_matrix_msdl.txt', corrMatMsdl, fmt='%.3f'  )
+#import pandas as pd
+#if not args.distMat == None:
+#
+#    dmat = np.loadtxt(args.distMat, delimiter=',')
+#    dvec = []
+#
+#    for i in range(corrMat.shape[0]):
+#        for j in range(corrMat.shape[1]):
+#            if j > i:
+#
+#                dvec.append( dmat[i,j] )
+#
+#
+#
+#    df = pd.DataFrame(np.concatenate((np.array(dvec).reshape([-1,1]),
+#                                      np.array(fcs).reshape([-1,1])), axis=1),
+#                        columns=['Distance','FC'])
+#
+#    fig = plt.figure(figsize=(20,10), dpi=figDpi, facecolor='w', edgecolor='k')
+#    #cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
+#    sns.jointplot(x='Distance', y='FC', data=df, kind='kde', n_levels=60, shade=True, cmap='magma')
+#    #g.plot_joint(plt.scatter, c=(0.8,0.8,0.8,0.1), s=2, linewidth=1, marker="+")
+#
+#    plt.savefig(outFileHistD)
+#    plt.close('all')

@@ -6,15 +6,18 @@ import nibabel as nib
 parser = argparse.ArgumentParser(description='Convert AFNI to RAS')
 
 reqoptions = parser.add_argument_group('Required arguments')
-reqoptions.add_argument('-d', '-dir', dest="base_dir", required=True, help='Dir' )
+reqoptions.add_argument('-i', '-in', dest="infile", required=True, help='Dir' )
+reqoptions.add_argument('-o', '-out', dest="outfile", required=True, help='Dir' )
 
 args = parser.parse_args()
 
 
 
-baseDir = args.base_dir #'/mnt/hgfs/ssd_tmp/ASL/056/'
+inFile = args.infile #'/mnt/hgfs/ssd_tmp/ASL/056/'
+outFile = args.outfile #'/mnt/hgfs/ssd_tmp/ASL/056/'
 
-afni_vec = np.loadtxt(baseDir + '/casl2anat_afni.1D')
+afni_vec = np.loadtxt(inFile, skiprows=1)
+
 
 ras_vec = np.zeros((4,4))
 ras_vec[0,0] = afni_vec[0]
@@ -34,8 +37,5 @@ ras_vec[3,1] = 0
 ras_vec[3,2] = 0
 ras_vec[3,3] = 1
 
-print(afni_vec)
-print(ras_vec)
 
-np.savetxt(baseDir + '/casl2anat.mat', ras_vec, fmt='%0.10f')
-
+np.savetxt(outFile, ras_vec, fmt='%0.10f')

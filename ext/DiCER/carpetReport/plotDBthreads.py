@@ -66,7 +66,7 @@ def main(raw_args=None):
 
 
 	confound_num = 0
-	with open(confounds,'rb') as tsvin:
+	with open(confounds,'r') as tsvin:
 		tsvin = csv.reader(tsvin, delimiter='\t')
 		total_confounds = []	
 		# counter = 

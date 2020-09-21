@@ -51,7 +51,7 @@ disp(sprintf('Starting slicewise temporal ICA on %d slices, with %d components e
 disp('Slices with many voxels (esp middle of brain if 2x2mm) take time to decompose...');
 
 save_vars=cell(zdim, 1);
-parpool(4);
+parpool(10);
 parfor z=1:zdim
   % test for existence of ICA-decomposed .mat file
   if (exist(sprintf('pestica_%dcomps_slice%d.mat',comps,z),'file')==2)

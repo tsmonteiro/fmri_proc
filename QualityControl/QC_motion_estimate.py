@@ -70,6 +70,6 @@ rngT = float(args.rngT)
 rngR = float(args.rngR)
 
 
-qc.motion_estimate(rpFile, outFname, range_trans=rngT, range_rot=rngR, tr=tr, prog=args.prog, dpi=figDpi):
+qc.motion_estimate(rpFile, outFname, range_trans=rngT, range_rot=rngR, tr=tr, prog=args.prog, dpi=figDpi)
 
 

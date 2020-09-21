@@ -30,7 +30,7 @@ import qclib as qc
 
 parser = argparse.ArgumentParser(description='Save QA check Plots')
 
-# Required options                    
+# Required options
 reqoptions = parser.add_argument_group('Required arguments')
 
 reqoptions.add_argument('-o', '-out', dest="outDir", required=True, help='Directory where images are to be saved' )
@@ -89,10 +89,10 @@ else:
 plt.rcParams.update({'font.size': 20, 'font.weight':'bold'} )
 
 
-funcImgFile = inDir + '/' + args.fname 
-csfFile = inDir + '/' + args.csfname 
-gmFile = inDir + '/' + args.gmname 
-wmFile = inDir + '/' + args.wmname 
+funcImgFile = inDir + '/' + args.fname
+csfFile = args.csfname
+gmFile = args.gmname
+wmFile = args.wmname
 
 print('EPI functional data: ' + funcImgFile)
 print('GM Mask: ' + gmFile)
@@ -114,7 +114,7 @@ rp = mh.convert_motion(np.loadtxt(rpFile), prog=args.prog)
 
 
 funcImg = nib.load(funcImgFile)
-data = np.array(funcImg.get_data())
+data = np.array(funcImg.get_fdata())
 
 X,Y,Z,N = data.shape
 nVox = X*Y*Z
@@ -204,27 +204,40 @@ if normType == 'none':
 
 
 csfImg = nib.load(csfFile)
-csfMask = np.array(csfImg.get_data())
+csfMask = np.array(csfImg.get_fdata())
 csfMask = np.reshape(csfMask, X*Y*Z)
 
 
-wmImg = nib.load(wmFile)
-wmMask = np.array(wmImg.get_data())
-wmMask = np.reshape(wmMask, X*Y*Z)
+wmImg   = nib.load(wmFile)
+wmMask  = np.array(wmImg.get_fdata())
+wmMask  = np.reshape(wmMask, X*Y*Z)
 
-gmImg = nib.load(gmFile)
-gmMask = np.array(gmImg.get_data())
-gmMask = np.reshape(gmMask, X*Y*Z)
+gmImg   = nib.load(gmFile)
+gmMask  = np.array(gmImg.get_fdata())
+gmMask  = np.reshape(gmMask, X*Y*Z)
 
-nVoxGm = sum((gmMask>0.6) & (muData>0))
-nVoxWm = sum((wmMask>0.6) & (muData>0))
+nVoxGm  = sum((gmMask>0.6) & (muData>0))
+nVoxWm  = sum((wmMask>0.6) & (muData>0))
 nVoxCsf = sum((csfMask>0.6) & (muData>0))
 
-nTotal = nVoxGm + nVoxWm + nVoxCsf
+nTotal  = nVoxGm + nVoxWm + nVoxCsf
 
-gmplot = np.reshape(data[(gmMask>0.6) & (muData>0),:], (nVoxGm,N))
-wmplot = np.reshape(data[(wmMask>0.6) & (muData>0),:], (nVoxWm,N))
-csfplot = np.reshape(data[(csfMask>0.6) & (muData>0),:], (nVoxCsf,N))
+gmplot  = np.reshape(data[(gmMask>0.6) & (muData>0),:], (nVoxGm,N))
+wmplot  = np.reshape(data[(wmMask>0.3) & (muData>0),:], (nVoxWm,N))
+csfplot = np.reshape(data[(csfMask>0.3) & (muData>0),:], (nVoxCsf,N))
+
+sdOrd   = np.std( gmplot, axis=1 )
+sortIdx = np.argsort((-sdOrd))
+gmplot  = gmplot[sortIdx,:]
+
+sdOrd   = np.std( wmplot, axis=1 )
+sortIdx = np.argsort((-sdOrd))
+wmplot  = wmplot[sortIdx,:]
+
+sdOrd   = np.std( csfplot, axis=1 )
+sortIdx = np.argsort((-sdOrd))
+csfplot = gmplot[sortIdx,:]
+
 
 
 allTissuePlot = np.concatenate((gmplot,wmplot,csfplot))
@@ -232,7 +245,15 @@ allTissuePlot = np.concatenate((gmplot,wmplot,csfplot))
 if usePctl == True:
 	rangeVal=np.percentile(allTissuePlot, rangeVal)
 
-plt.imshow( allTissuePlot, interpolation='bilinear', extent=[0, N, 0, nVoxGm+nVoxWm+nVoxCsf], aspect='auto',  cmap='YlGnBu_r', vmin=-rangeVal, vmax=rangeVal )
+import matplotlib.colors as mcolors
+colors1 = plt.cm.bone_r(np.linspace(0., 1, 256))
+colors2 = plt.cm.inferno(np.linspace(0, 1, 256))
+
+# combine them and build a new colormap
+colors = np.vstack((colors1, colors2))
+mymap  = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
+
+plt.imshow( allTissuePlot, interpolation='bilinear', extent=[0, N, 0, nVoxGm+nVoxWm+nVoxCsf], aspect='auto',  cmap=mymap, vmin=-rangeVal, vmax=rangeVal )
 plt.plot([0, N],[nTotal-nVoxGm, nTotal-nVoxGm], color='k', linewidth=4)
 plt.plot([0, N],[nTotal-(nVoxGm+nVoxWm), nTotal-(nVoxGm+nVoxWm)], color='w', linewidth=4)
 
@@ -247,7 +268,5 @@ ax = plt.gca()
 
 
 ax.set_yticklabels(labels)
-
+#plt.colorbar()
 plt.savefig(outFile)
-
-

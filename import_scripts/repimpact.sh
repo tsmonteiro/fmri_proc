@@ -13,17 +13,17 @@
 # rev_phase.nii  -> 4D EPI acquired with reverse phase [for fieldmap correction]
 SUB=$1
 OUTDIR=$2
-DATADIR=/mnt/hgfs/REPIMPACT/$SUB
+DATADIR=/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/Raw/BelgiumNIFTIfiles/NIFTIfiles/$SUB
 
 if [ ! -d "$DATADIR" ]; then
 	echo "Cannot find ${SUB}. Data import failed."
 else
 	if [ ! -d "${OUTDIR}" ]; then
-		mkdir -m 777 ${OUTDIR}
-	else
-		{
-		rm ${OUTDIR}/*
-		} &> /dev/null
+		mkdir -p -m 777 ${OUTDIR}
+	#else
+	#	{
+	#	rm ${OUTDIR}/*
+	#	} &> /dev/null
 	fi
 
 
@@ -39,7 +39,7 @@ else
 	do
 		cp $F ${OUTDIR}/rev_phase.nii.gz
 		gunzip -f ${OUTDIR}/rev_phase.nii.gz
-	done 
+	done
 	} | {
 	for F in "${DATADIR}/*rsn_REV*.nii.gz"
 	do
@@ -50,11 +50,11 @@ else
 	}
 
 
-	for F in "${DATADIR}/*T1W*.nii.gz"
-	do
-		cp $F ${OUTDIR}/t1.nii.gz
-		gunzip -f ${OUTDIR}/t1.nii.gz
-	done
+	#for F in "${DATADIR}/*T1W*.nii.gz"
+	#do
+	#	cp $F ${OUTDIR}/t1.nii.gz
+	#	gunzip -f ${OUTDIR}/t1.nii.gz
+	#done
 
 
 fi

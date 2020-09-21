@@ -46,14 +46,14 @@ inputsFromTerminal = True
 
 # Whether to save out spatial maps of voxels contributing to regressor at each
 # iteration:
-saveSpatialMaps = True
-saveAltGM = True
+saveSpatialMaps = False
+saveAltGM = False
 
 #-------------------------------------------------------------------------------
 # Label in mask to extract time-series data
 maskLabel = 4
 # Downsample to a subset of voxels (for speed) [set to 0 for no downsampling]:
-downSampleRate = 0
+downSampleRate = 3
 # How to compute mean of a cluster (from all samples or just core samples?)
 # meanFromJustCore = False
 # Flip voxels negatively correlated with cluster center:
@@ -450,8 +450,8 @@ while numRegressorsNow > 0:
         numRegressorPerIteration = np.append(numRegressorPerIteration,numRegressorsNow)
     else:
         if numRegressorsNow > 0:
-            regressors = np.append(regressors,regressorsNow,axis=0)            
-            # Just a command here to store how many regressors only if 
+            regressors = np.append(regressors,regressorsNow,axis=0)
+            # Just a command here to store how many regressors only if
             numRegressorPerIteration = np.append(numRegressorPerIteration,numRegressorsNow)
     itNum = itNum + 1
     if (numRegressorsNow > 0) and (itNum > maxIterations):

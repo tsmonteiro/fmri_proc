@@ -1,0 +1,3 @@
+Filtershift is not compiling on FSL 6+ due to changes in the fslio and niftiio libraries.
+
+Copy the filtershift executable to /usr/local/fsl/bin and hope for the best

@@ -1,0 +1,58 @@
+NONE: No nuisance regression performed
+
+S: Interpolation of time points where framewise displacement was greater than 0.5 mm
+
+FIX: Non-aggressive regression of automatically identified (as artifacts) independent components
+
+RP24: 24 motion parameter regression
+
+WM1: Mean white-matter signal regression
+
+CSF1: Mean CSF signal regression
+
+CC: ACompCor (N PCA components) over combined CSF + WM mask. The number N of components is chosen as to explain 25% of the variance within the mask.
+
+RP9: 6 motion parameters + WM1 + CSF1 + average whole-brain signal
+
+FIX_CC: Aggressive removal or artifactual independent components + ACompCor [See Note 2 below]
+
+_D: DiCER [Diffuse Cluster Estimation and Regression] procedure to remove widespread artifact. This is an alternative to global signal regression [See Note 1].
+
+===========================================
+
+[NOTE 1]
+
+From Smith et al. NeuroImage 2013, HCP
+
+"Preliminary analyses of measures of motion-related artefacts indicate that the ICA-FIX process greatly reduces but does not, in some datasets, totally eliminate motion artefacts
+that are frame-specific and non-spatially-specific.
+In coming months we will investigate further whether there is value in additional cleanup stages,
+most likely to be added into the pipeline after the ICA+FIX denoising. One approach that is simple but effective is “motion scrubbing”, #
+in which one identifies the timepoints that are “irreversibly” damaged by motion, and simply excises those from the timeseries analysis (Power et al., 2011).
+
+We will evaluate this and other approaches, and where appropriate, make improvements to the temporal pre-processing pipeline."
+
+
+[NOTE 2]
+
+# From Parkes et al. 2018
+Taken together, the above results allow us to draw six key conclusions.
+ First, Head Motion Parameters + Phys models without GSR are ineffective at
+      mitigating motion-related artefact from rs-fMRI,
+      regardless of the level of motion in the sample,
+      exclusionary criteria applied, or the use of expansion terms.
+ The application of GSR dramatically improves the performance of these pipelines.
+ Second, aCompCor pipelines may only be viable in low-motion datasets and perform poorly in high motion data (see Fig. 1).
+ Third, ICA-AROMA and censoring pipelines are superior to the other denoising strategies,
+      yielding the lowest QC-FC correlations (see Fig. 1, Fig. 4), lowest QC-FC distance-dependence (see Fig. 2, Fig. 4),
+      and minimal functional connectivity differences between high- and low-motion healthy controls (see Fig. 6).
+ Fourth, a major part of the benefit to motion-related artefact control in censoring pipelines comes
+      from the exclusion of participants with <4 min of uncensored data;
+      when this criterion is applied to all pipelines,
+      performance differences are marginal (except for the HMP pipelines without GSR).
+ Fifth, aCompCor and censoring pipelines yield high tDOF-loss,
+      marking them as relatively expensive methods for controlling
+      for motion-related artefact in rs-fMRI data.
+ Finally, methods that were more effective at denoising were associated
+      with reduced test-retest reliability,
+      suggesting that noise signals in BOLD data are reproducible.

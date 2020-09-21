@@ -1,5 +1,5 @@
 # edit the hard-coded base directory containing the matlab code and the averaged volumes
-export PESTICA_DIR=/home/fsluser/Documents/rs_proc/ext/pestica4    # set the one you use pestica4
+export PESTICA_DIR=/home/luna.kuleuven.be/u0101486/workspace/fmri_proc/ext/pestica4    # set the one you use pestica4
 export SLOMOCO_DIR=$PESTICA_DIR/slomoco
 export PESTICA_VOL_DIR=$PESTICA_DIR/template
 
@@ -26,8 +26,3 @@ export PESTICA_MATLAB_POOLSIZE=4
 # for recent versions (e.g. R2015a definitely needs this), switch -nojvm to -nodesktop, as you need java to use matlab's Handle Graphics functionality
 export MATLABLINE="-nodesktop -nosplash -softwareopengl "
 #export MATLABLINE="--eval --no-gui"
-
-
-
-
-

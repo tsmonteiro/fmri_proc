@@ -50,7 +50,7 @@ def motion_estimate(rpFile, outFname, range_trans=1.5, range_rot=1.5, tr=0, prog
 
 
 	# Roll, pitch yaw, dS, dL, dP
-	fig = plt.figure(figsize=(16,12), dpi=figDpi, facecolor='w', edgecolor='k')
+	fig = plt.figure(figsize=(16,12), dpi=dpi, facecolor='w', edgecolor='k')
 	plt.subplot(211)
 
 	time = []
@@ -62,7 +62,7 @@ def motion_estimate(rpFile, outFname, range_trans=1.5, range_rot=1.5, tr=0, prog
 	if tr > 0:
 		t = 60/tr # One-minute mark
 		while t < (N*tr):
-			plt.plot([t, t], [-rngR, rngR], color=[0.75,0.75,0.75], linewidth=1, linestyle='--')
+			plt.plot([t, t], [-range_rot, range_rot], color=[0.75,0.75,0.75], linewidth=1, linestyle='--')
 			t += 60/tr
 
 	plt.plot(time,  rp[:,0], label='Roll', color=[.6,.6,1], linewidth=3)
@@ -73,8 +73,8 @@ def motion_estimate(rpFile, outFname, range_trans=1.5, range_rot=1.5, tr=0, prog
 	plt.ylabel('Rotation [degs]')
 
 
-	plt.axis((0, N, -rngR, rngR))
-	ticks = np.linspace(-rngR, rngR, 5)
+	plt.axis((0, N, -range_rot, range_rot))
+	ticks = np.linspace(-range_rot, range_rot, 5)
 
 	plt.yticks(ticks)
 
@@ -95,7 +95,7 @@ def motion_estimate(rpFile, outFname, range_trans=1.5, range_rot=1.5, tr=0, prog
 	if tr > 0:
 		t = 60/tr # One-minute mark
 		while t < (N*tr):
-			plt.plot([t, t], [-rngT, rngT], color=[0.75,0.75,0.75], linewidth=1, linestyle='--')
+			plt.plot([t, t], [-range_trans, range_trans], color=[0.75,0.75,0.75], linewidth=1, linestyle='--')
 			t += 60/tr
 
 
@@ -107,8 +107,8 @@ def motion_estimate(rpFile, outFname, range_trans=1.5, range_rot=1.5, tr=0, prog
 	plt.ylabel('Shift [mm]')
 
 
-	plt.axis((0, N, -rngT, rngT))
-	ticks = np.linspace(-rngT, rngT, 5)
+	plt.axis((0, N, -range_trans, range_trans))
+	ticks = np.linspace(-range_trans, range_trans, 5)
 
 	ax = plt.gca()
 
@@ -122,6 +122,6 @@ def motion_estimate(rpFile, outFname, range_trans=1.5, range_rot=1.5, tr=0, prog
 	plt.legend()
 	fig.tight_layout()
 
-	plt.savefig(outFile)
+	plt.savefig(outFname)
 
 

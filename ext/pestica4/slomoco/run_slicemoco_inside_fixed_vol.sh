@@ -9,7 +9,7 @@
 # and thats our slicewise timeseries
 # compare with injected noise in pre- and post-mortem scans...
 
-AFNI_BYTEORDER=LSB_FIRST	
+AFNI_BYTEORDER=LSB_FIRST
 export AFNI_BYTEORDER
 
 function Usage () {
@@ -109,11 +109,11 @@ par_tcalc()
 	t=${1}
 	tempslmoco=${2}
 
-	3dcalc -a $tempslmoco/__temp_mean+orig -expr 'a' -prefix $tempslmoco/__t_`printf %04d $t` > /dev/null 2>&1	
+	3dcalc -a $tempslmoco/__temp_mean+orig -expr 'a' -prefix $tempslmoco/__t_`printf %04d $t` > /dev/null 2>&1
 }
 export -f par_tcalc
 
-parallel -j4 --line-buffer par_tcalc ::: $(seq 0 ${tcount}) ::: ${tempslmoco} 
+parallel -j4 --line-buffer par_tcalc ::: $(seq 0 ${tcount}) ::: ${tempslmoco}
 
 #for t in $(seq 0 $tcount) ; do
 #  3dcalc -a $tempslmoco/__temp_mean+orig -expr 'a' -prefix $tempslmoco/__t_`printf %04d $t` > /dev/null 2>&1
@@ -125,7 +125,7 @@ rm $tempslmoco/__t_????+orig.????
 
 # blur
 3dmerge -1blur_fwhm 3.0 -doall -prefix $tempslmoco/__temp_tseries_mean_blur $tempslmoco/__temp_tseries_mean+orig > /dev/null 2>&1
-rm $tempslmoco/__temp_tseries_mean+orig.* 
+rm $tempslmoco/__temp_tseries_mean+orig.*
 
 
 ##3dmerge -1blur_fwhm 1.0 -doall -prefix $tempslmoco/__temp_mean_blur $tempslmoco/__temp_mean+orig
@@ -136,7 +136,7 @@ par_zcutup()
 	inputdata=${3}
 
 	3dZcutup -keep $z $z -prefix $tempslmoco/__temp_tseries_mean_blur_`printf %04d $z` $tempslmoco/__temp_tseries_mean_blur+orig > /dev/null 2>&1
-	3dZcutup -keep $z $z -prefix $tempslmoco/__temp_tseries_`printf %04d $z` $inputdata > /dev/null 2>&1	
+	3dZcutup -keep $z $z -prefix $tempslmoco/__temp_tseries_`printf %04d $z` $inputdata > /dev/null 2>&1
 }
 export -f par_zcutup
 
@@ -176,7 +176,7 @@ inplane_moco_p1()
 		echo "doing slices $zsimults at once"
 	else
 		echo "doing slice $zsimults"
-	fi 
+	fi
 
 	# pad into volume using the mean image for adjacent slices
 	rm -f $tempslmoco/__temp_input_${z}*
@@ -193,7 +193,7 @@ inplane_moco_p2()
 	tempslmoco=${4}
 	SMSfactor=${5}
 
-	
+
 	rm $tempslmoco/__temp_output_${z}*
 	3dvolreg -prefix $tempslmoco/__temp_output_${z} -1Dmatrix_save $tempslmoco/motion.wholevol_zt.`printf %04d $z`.1D -zpad 8 -maxite 60 -base $tempslmoco/__temp_mean+orig -heptic $tempslmoco/__temp_input_${z}+orig
 
@@ -227,7 +227,7 @@ export -f inplane_moco_p3
 #Parallel here is not working. Perhaps possible to break up the function into 3 parts and run only the volreg part in parallel
 #$(seq 0 ${zmbcount})
 parallel -j1 --line-buffer inplane_moco_p1 ::: $(seq 0 ${zmbcount}) ::: ${MBcount} ::: ${zmbdim} ::: ${tempslmoco} ::: ${SMSfactor}
-parallel -j4 --line-buffer inplane_moco_p2 ::: $(seq 0 ${zmbcount}) ::: ${MBcount} ::: ${zmbdim} ::: ${tempslmoco} ::: ${SMSfactor}
+parallel -j12 --line-buffer inplane_moco_p2 ::: $(seq 0 ${zmbcount}) ::: ${MBcount} ::: ${zmbdim} ::: ${tempslmoco} ::: ${SMSfactor}
 parallel -j1 --line-buffer inplane_moco_p3 ::: $(seq 0 ${zmbcount}) ::: ${MBcount} ::: ${zmbdim} ::: ${tempslmoco} ::: ${SMSfactor}
 
 #for z in $(seq 0 $zmbcount) ; do
@@ -250,7 +250,7 @@ parallel -j1 --line-buffer inplane_moco_p3 ::: $(seq 0 ${zmbcount}) ::: ${MBcoun
 #    echo "doing slices $zsimults at once"
 #  else
 #    echo "doing slice $zsimults"
-#  fi 
+#  fi
 #
 #  # pad into volume using the mean image for adjacent slices
 #  rm -f $tempslmoco/__temp_input*
@@ -268,8 +268,7 @@ parallel -j1 --line-buffer inplane_moco_p3 ::: $(seq 0 ${zmbcount}) ::: ${MBcoun
 #  done
 #done
 
-rm $tempslmoco/__temp_* 
+rm $tempslmoco/__temp_*
 
 echo "finished slicewise in-plane motion correction"
 echo "Exiting"
-

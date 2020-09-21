@@ -25,10 +25,10 @@ img = nib.load(img_path)
 imgData = img.get_fdata()
 ext = Extractor()
 
-# `prob` will be a 3d numpy image containing probability 
+# `prob` will be a 3d numpy image containing probability
 # of being brain tissue for each of the voxels in `img`
 
-prob = ext.run(imgData) 
+prob = ext.run(imgData)
 
 # mask can be obtained as:
 mask = prob > 0.5
