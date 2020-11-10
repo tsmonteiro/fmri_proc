@@ -63,11 +63,28 @@ if acq == 2:
 
     np.savetxt(outFile, np.transpose(timing), fmt='%.3f')
 
-if acq == 3:
-    # Assuming here that it was ascending, 2 slices at a times
+if acq == 33:
+    # Assuming here that it was ascending, 3 slices at a times
 
     timing = np.linspace(0, TR- (TR/(nSlices/3)), int((nSlices/3))) #np.linspace(0, TR-(1/TR), int((nSlices/3)))
     timing = np.concatenate((timing, timing,timing))
     timing = (timing*(TR*1000)).astype(int) # As int ms
 
     np.savetxt(outFile, timing.reshape([-1,1]), fmt='%d', delimiter=',')
+
+
+if acq == 32:
+    # Assuming here that it was ascending, 3 slices at a times
+    dt = (1/TR) * 2
+
+    #timing1 = np.linspace(0, TR-dt, int((nSlices)/2))
+    #timing2 = np.linspace(dt, TR, int((nSlices)/2))
+    timing1 = np.linspace(0, TR, int((nSlices)/2))
+    timing2 = np.linspace(0, TR, int((nSlices)/2))
+
+    #timing = np.concatenate((timing1, timing2 ))
+    #timing = np.linspace(0, TR- (TR/(nSlices/2) * 2), int((nSlices/2))) #np.linspace(0, TR-(1/TR), int((nSlices/3)))
+    timing = np.concatenate((timing1, timing2))
+    timing = (TR- (TR/(nSlices/2) * 2)) - (timing*(TR*1)) # As int ms
+
+    np.savetxt(outFile, timing.reshape([-1,1]), fmt='%.3f', delimiter=',')

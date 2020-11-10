@@ -80,6 +80,8 @@ reqoptions.add_argument('-d', '-dpi', dest="dpi", required=False, default=120, h
 
 reqoptions.add_argument('-t', '-type', dest="type", required=False, default='std', help='Type of comparison: [std], mean' )
 
+reqoptions.add_argument('-ord', dest="voxOrder", required=False, default='std', help='How to order voxels' )
+
 
 args = parser.parse_args()
 
@@ -94,7 +96,7 @@ outType=args.type
 msg1 = args.msg1
 msg2 = args.msg2
 
-
+voxOrder = args.voxOrder
 
 
 fileDirs = str.split( __file__, '/')
@@ -342,16 +344,11 @@ ims[0].save(outSDD, format='GIF',
 
 X,Y,Z,N = data1.shape
 nVox = X*Y*Z
-# Reshape to voxels x time
-data1 = np.reshape(data1, (X*Y*Z, N))
-data2 = np.reshape(data2, (X*Y*Z, N))
+
 
 cX = (X - 1) // 2
 cY = (Y - 1) // 2
 cZ = (Z - 1) // 2
-
-points = []
-sdOrd  = np.std( data1, axis=1 )
 
 cent = np.zeros((3,1))
 cent[0] = cX
@@ -360,20 +357,34 @@ cent[2] = cZ
 
 cent = np.transpose(cent)
 
-#dists = np.linalg.norm(points - cent, ord=2, axis=1) # calculate Euclidean distance (2-norm of difference vectors)
-sortIdx = np.argsort((-sdOrd))
-#sortIdx = np.argsort(dists)
-data1 = data1[sortIdx,:]
-data2 = data2[sortIdx,:]
+# Sort voxels by temporal standard deviation
+if voxOrder == 'std':
+    # Reshape to voxels x time
+    data1 = np.reshape(data1, (X*Y*Z, N))
+    data2 = np.reshape(data2, (X*Y*Z, N))
 
-#data1 = data1[points,:]
-#data2 = data2[points,:]
+    sdOrd  = np.std( data1, axis=1 )
+
+    sortIdx = np.argsort((-sdOrd))
+
+    data1 = data1[sortIdx,:]
+    data2 = data2[sortIdx,:]
+
+# Sort voxels by slice
+if voxOrder == 'z':
+    # Reshape to voxels x time
+    data1 = np.transpose( data1, (2,1,0,3) )
+    data2 = np.transpose( data2, (2,1,0,3) )
+
+    # Order F --> Last index changes the slowest
+    data1 = np.reshape(data1, (X*Y*Z, N))
+    data2 = np.reshape(data2, (X*Y*Z, N))
 
 
 mu    = np.mean(data1,axis=1)
 mu2   = np.mean(data2,axis=1)
 
-thr   = np.percentile(mu, 50)
+thr   = np.percentile(mu, 75)
 
 data1 = data1 - mu[:, np.newaxis]
 data2 = data2 - mu2[:, np.newaxis]
@@ -402,7 +413,10 @@ mymap  = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
 fig = plt.figure(figsize=(16,12), dpi=figDpi, facecolor='w', edgecolor='k')
 
 im = plt.imshow( data1, interpolation='bilinear', extent=[0, N, 0, nVox], aspect='auto',  cmap=mymap, vmin=vmin, vmax=vmax )
-plt.yticks([0, nVox], labels=('Low tSD', 'High tSD'))
+if voxOrder == 'z':
+    plt.yticks([0, nVox], labels=('Z = 0', 'Z = Max'))
+if voxOrder == 'std':
+    plt.yticks([0, nVox], labels=('Low tSD', 'High tSD'))
 fig.colorbar(im, orientation='vertical')
 
 plt.savefig(outG1)
@@ -411,7 +425,10 @@ plt.close('all')
 fig = plt.figure(figsize=(16,12), dpi=figDpi, facecolor='w', edgecolor='k')
 
 im=plt.imshow( data2, interpolation='bilinear', extent=[0, N, 0, nVox], aspect='auto',  cmap=mymap, vmin=vmin, vmax=vmax )
-plt.yticks([0, nVox], labels=('Low tSD', 'High tSD'))
+if voxOrder == 'z':
+    plt.yticks([0, nVox], labels=('Z = 0', 'Z = Max'))
+if voxOrder == 'std':
+    plt.yticks([0, nVox], labels=('Low tSD', 'High tSD'))
 fig.colorbar(im, orientation='vertical')
 
 plt.savefig(outG2)

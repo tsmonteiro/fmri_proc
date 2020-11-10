@@ -50,11 +50,11 @@ else
 	}
 
 
-	#for F in "${DATADIR}/*T1W*.nii.gz"
-	#do
-	#	cp $F ${OUTDIR}/t1.nii.gz
-	#	gunzip -f ${OUTDIR}/t1.nii.gz
-	#done
+	for F in "${DATADIR}/*T1W*.nii.gz"
+	do
+		cp $F ${OUTDIR}/t1.nii.gz
+		gunzip -f ${OUTDIR}/t1.nii.gz
+	done
 
 
 fi

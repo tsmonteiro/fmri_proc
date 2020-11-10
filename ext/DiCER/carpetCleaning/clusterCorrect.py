@@ -33,7 +33,7 @@ elif paramSet=='liberal':
     propSamplesDense = 0.01
 
 # Force stop after a certain number of iterations
-maxIterations = 5
+maxIterations = 10
 
 # Minimum proportion of core samples to include a cluster:
 # (hopefully this can be removed if other parameters are set properly)
@@ -478,16 +478,25 @@ print('Saved %u DBSCAN regressors to %s' % (numRegressors,fileNameRegressors))
 if saveSpatialMaps:
     # Get the unstructured mask:
     M0,dimMask = fMRI_in_out.import_nifti(mask_file)
+
     fMRI_in_out.nifti_save(M0,dimMask,'testMasker.nii.gz')
     # Write each specific mask into the maskLabel
     for k in range(len(spatialMaps)):
         # import pdb;pdb.set_trace()
         fileNameMap_k = os.path.join(saveCSV_dir,('%s_dbscan_%s_spatialMap_%u.nii.gz' % (subjectName,paramSet,k+1)))
         M_k = np.zeros_like(M0)
-        M_k[M0 == maskLabel] = spatialMaps[k]
-        fMRI_in_out.nifti_save(M_k,dimMask,fileNameMap_k)
-        print('Saved map of %u voxels used in iteration %u/%u to %s' %
-                                    (np.sum(spatialMaps[k]>0),k+1,len(spatialMaps),fileNameMap_k))
+
+        #@FIXME TSM
+        # There is a problem with this part of the code
+        # It is perhaps more pratical to do this in AFNI
+        #dI = downsampleIndex(X, downSampleRate)
+        #upSpatial = np.zeros_like(M0)
+        #upSpatial[dI] = spatialMaps[k]
+        #M_k[M0 == maskLabel] = upSpatial[M0 == maskLabel] spatialMaps[k]
+
+        #fMRI_in_out.nifti_save(M_k,dimMask,fileNameMap_k)
+        #print('Saved map of %u voxels used in iteration %u/%u to %s' %
+        #                            (np.sum(spatialMaps[k]>0),k+1,len(spatialMaps),fileNameMap_k))
 
 #-------------------------------------------------------------------------------
 # Also compute and save the aGM solution:

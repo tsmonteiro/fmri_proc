@@ -3,87 +3,306 @@
 #printf "\033c"
 
 SUB=$1
-CONFIG=$2 #/home/fsluser/Documents/rs_proc/conf_files/rep_impact_belgium.conf
+CONFIG_PROJECT=$2 #/home/fsluser/Documents/rs_proc/conf_files/rep_impact_belgium.conf
 #BLOCK=$3
 DOWN=$3
 
-#TODO Add this to the configuration file
-WDIR=$(awk -F\=  '/^WDIR/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-QCDIR=$(awk -F\=  '/^QCDIR/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DICERPATH=$(awk -F\=  '/^DICERPATH/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-C3DPATH=$(awk -F\=  '/^C3DPATH/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-CMTKPATH=$(awk -F\=  '/^CMTKPATH/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-ABIN=$(awk -F\=  '/^ABIN/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-FIXBIN=$(awk -F\=  '/^FIXBIN/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# HARDCODED SWITCHES FOR TESTING PURPOSES ONLY
+RUN_ICA=1
+DO_DEOBL=1 # Turning this into mandatory unless I discover some issue with it
+# END OF HARDCODED SWITCHES
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+# Will read default configuration, then project specific ones,
+# in case they are defined
+CONF_FILES="./conf_files/default.conf
+            ${CONFIG_PROJECT}"
+
+#CONF_FILES=${CONFIG}
+
+for CONFIG in ${CONF_FILES}
+do
+      # Working Directory, that is, path to fmri_proc
+      VAL=$(awk -F\=  '/^WDIR/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+
+      if [[ ! -z "${VAL}" ]]; then
+          WDIR=${VAL}
+          QCDIR=${WDIR}/QualityControl/
+          UTILDIR=${WDIR}/util/
+          DICERPATH=${WDIR}/ext/DiCER/
+      fi
+
+      # Folder where ANTs is installed (all the way to .../bin)
+      VAL=$(awk -F\=  '/^ABIN/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          ABIN=${VAL}
+      fi
+
+      # Folder where ICA-FIX was installed
+      VAL=$(awk -F\=  '/^FIXBIN/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          FIXBIN=${VAL}
+       fi
+
+      # Should the surface be estimated from the T1 files?
+      VAL=$(awk -F\=  '/^EXTRACT_SURF/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+        EXTRACT_SURF=${VAL}
+      fi
 
 
-EXTRACT_SURF=$(awk -F\=  '/^EXTRACT_SURF/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_FUNC_SURF=$(awk -F\=  '/^DO_FUNC_SURF/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      # Path and file prefix for the DARTEL template
+      VAL=$(awk -F\=  '/^\<DARTEL_TEMPLATE_DIR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          DARTEL_TEMPLATE_DIR=${VAL}
+      fi
+
+      VAL=$(awk -F \= '/^\<DARTEL_TEMPLATE_PREF\>/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          DARTEL_TEMPLATE_PREF=${DARTEL_TEMPLATE_DIR}/${VAL}
+      fi
+
+      # Place where the processing occurs
+      # Folder MUST be unique for each data set (NOT subject)
+      VAL=$(awk -F\=  '/^\<OUTDIR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          OUTDIR=${VAL}
+      fi
+
+      # Final storage folder for each subject
+      VAL=$(awk -F\=  '/^\<FINALDIR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          FINALDIR=${VAL}
+      fi
+
+      # CONFIGURATION RELATIVE TO STEPS WHICH SHOULD BE PERFORMED
+      # STEP 1 - Copy files to OUTDIR
+      VAL=$(awk -F\=  '/^\<DO_COPY\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          DO_COPY=${VAL}
+      fi
+
+      # STEP 2 - Process the functional data (motion, slice timing, etc.)
+      VAL=$(awk -F\=  '/^\<DO_FUNC_NATIVE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+        DO_FUNC_NATIVE=${VAL}
+      fi
+
+      # STEP 3 - Process T1 structural and align functional <-> anatomical <-> MNI
+      VAL=$(awk -F\=  '/^\<DO_ANAT\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+        DO_ANAT=${VAL}
+      fi
+
+      # STEP 4 - Warp brain atlases from MNI to native space
+      # This is used for Quality Control later on
+      VAL=$(awk -F\=  '/^\<DO_ATLAS_TO_NATIVE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          DO_ATLAS_TO_NATIVE=${VAL}
+      fi
+
+      # STEP 5 - Run ICA and, if needed the features for ICA-FIX
+      VAL=$(awk -F\=  '/^\<DO_ICA\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          DO_ICA=${VAL}
+      fi
 
 
-DARTEL_TEMPLATE_PREF=$(awk -F \= '/^\<DARTEL_TEMPLATE_PREF\>/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DARTEL_TEMPLATE_DIR=$(awk -F\=  '/^\<DARTEL_TEMPLATE_DIR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-
-TMPDIR=$(awk -F\=  '/^\<TMPDIR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-OUTDIR=$(awk -F\=  '/^\<OUTDIR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-FINALDIR=$(awk -F\=  '/^\<FINALDIR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-
-DO_COPY=$(awk -F\=  '/^\<DO_COPY\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-MOCO=$(awk -F\=  '/^\<MOCO\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-ICA_TYPE=$(awk -F\=  '/^\<ICA_TYPE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_REG=$(awk -F\=  '/^\<DO_REG\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_ANAT=$(awk -F\=  '/^\<DO_ANAT\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_ICA=$(awk -F\=  '/^\<DO_ICA\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_NORM=$(awk -F\=  '/^\<DO_NORM\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_MNI=$(awk -F\=  '/^\<DO_MNI\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_QA=$(awk -F\=  '/^\<DO_QA\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-RUN_ICA=$(awk -F\=  '/^\<RUN_ICA\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_CLEAN=$(awk -F\=  '/^\<DO_CLEAN\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-APPLY_FIX=$(awk -F\=  '/^\<APPLY_FIX\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-APPLY_DICER=$(awk -F\=  '/^\<APPLY_DICER\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-
-DO_ATLAS_NAT=$(awk -F\=  '/^\<DO_ATLAS_NAT\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-TR=$(awk -F\=  '/^\<TR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-ACQ_TYPE=$(awk -F\=  '/^\<ACQ_TYPE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-F2A_FUNC=$(awk -F\=  '/^\<F2A_FUNC\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_SLC=$(awk -F\=  '/^\<DO_SLC\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_FMAP=$(awk -F\=  '/^\<DO_FMAP\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-EES=$(awk -F\=  '/^\<EES\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_PEST=$(awk -F\=  '/^\<DO_PEST\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      # STEP 6 - Generate multiple FC matrices for QC
+      VAL=$(awk -F\=  '/^\<DO_QA\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          DO_QA=${VAL}
+      fi
 
 
-DO_DEOBL=$(awk -F\=  '/^\<DO_DEOBL\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_DPK=$(awk -F\=  '/^\<DO_DPK\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_ING=$(awk -F\=  '/^\<DO_ING\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-GLOB_VAL=$(awk -F\=  '/^\<GLOB_VAL\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      # STEP 7 - Normalize functional files to common space
+      VAL=$(awk -F\=  '/^\<DO_NORM\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+        DO_NORM=${VAL}
+      fi
+      # END of STEPS
 
-FIX_CLASSIFIER=$(awk -F\=  '/^\<FIX_CLASSIFIER\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-FIX_CL_LABEL=$(awk -F\=  '/^\<FIX_CL_LABEL\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-FIX_THR=$(awk -F\=  '/^\<FIX_THR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      # Now, a few extra configurations and optional steps
+
+      # Clean unnecessary intermediate files
+      VAL=$(awk -F\=  '/^\<CLEAN_INTERMEDIATE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          CLEAN_INTERMEDIATE=${VAL}
+      fi
+
+      # Run the FIX classification procedure and estimate the noisy components
+      VAL=$(awk -F\=  '/^\<ESTIMATE_FIX\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          ESTIMATE_FIX=${VAL}
+      fi
+
+      # Estimate widespread noisy components using DiCER
+      VAL=$(awk -F\=  '/^\<ESTIMATE_DICER\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          ESTIMATE_DICER=${VAL}
+      fi
+
+      # Functional data TR, in seconds
+      VAL=$(awk -F\=  '/^\<TR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          TR=${VAL}
+      fi
+
+      # Correct slice timing differences
+      VAL=$(awk -F\=  '/^\<CORRECT_SLICE_TIME\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          CORRECT_SLICE_TIME=${VAL}
+      fi
+
+      # Slice acquisition identifier. Possible values are (dt is a singel slice time):
+      # 1  - Sequential, ascending (1,2,3, ...)
+      # 2  - Interleaved (1,3, ..., N-1, 2,4,...,N)
+      # 33 - Parallel, ascending, 3 slices at a time
+      #      E.g., for 9 slices ([1 4 7], [2 5 8], [3 6 9] )
+      # 32 - Parallel, ascending, 2 slices at a time
+      VAL=$(awk -F\=  '/^\<ACQ_TYPE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+        ACQ_TYPE=${VAL}
+      fi
 
 
-BREXT_TYPE=$(awk -F\=  '/^\<BREXT_TYPE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      # Type of ICA to be run
+      # melodic (better validated within ICA-FIX procedure)
+      # canica  (MIGHT work better in some cases, but proper testing is still required)
+      VAL=$(awk -F\=  '/^\<ICA_TYPE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          ICA_TYPE=${VAL}
+      fi
 
-DO_FWHM=$(awk -F\=  '/^\<DO_FWHM\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-DO_NLM=$(awk -F\=  '/^\<DO_NLM\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-USE_TISSUE_PRIOR=$(awk -F\=  '/^\<USE_TISSUE_PRIOR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-GM_PRIOR=$(awk -F\=  '/^\<GM_PRIOR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-WM_PRIOR=$(awk -F\=  '/^\<WM_PRIOR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-CSF_PRIOR=$(awk -F\=  '/^\<CSF_PRIOR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-REG_MODEL=$(awk -F\=  '/^\<REG_MODEL\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-EXTRACT_NUIS=$(awk -F\=  '/^\<EXTRACT_NUIS\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-FD_THR=$(awk -F\=  '/^\<FD_THR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
-IMPORT_SCRIPT=$(awk -F\=  '/^\<IMPORT_SCRIPT\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
 
-GROUPDIR=$(awk -F\=  '/^\<GROUPDIR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      # Correct field inhomogeneity distortions on functional data.
+      # Possible values are
+      # 1 - Reverse phase procedure
+      # 2 - Fieldmap
+      VAL=$(awk -F\=  '/^\<CORRECT_GEOM_DISTORT\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          CORRECT_GEOM_DISTORT=${VAL}
+      fi
 
+
+      # Estimate Physiological noise. Possible values are:
+      # 3 - External physiological unit (Very finnicky at the moment)
+      # 4 - PHYCAA+ (model based prediction)
+      VAL=$(awk -F\=  '/^\<ESTIMATE_PHYSIO\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          ESTIMATE_PHYSIO=${VAL}
+      fi
+
+      # Calls AFNI's 3dDespike (voxelwise interpolation). Possible values are:
+      # 1 - BEFORE motion correction (might help realignment, but change motion estimate)
+      # 2 - AFTER motion correction
+      # 3 - AFTER NUISANCE regression
+      VAL=$(awk -F\=  '/^\<DO_DPK\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          DO_DPK=${VAL}
+      fi
+
+      # Normalize functional image intensity to a global value
+      # Value is set in the GLOB_VAL configuration
+      VAL=$(awk -F\=  '/^\<INTENSITY_NORM\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          INTENSITY_NORM=$(awk -F\=  '/^\<INTENSITY_NORM\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      fi
+
+      VAL=$(awk -F\=  '/^\<GLOB_VAL\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          GLOB_VAL=${VAL}
+      fi
+
+      # THE following 3 configuration values refer to ICA-FIX
+      # Fully qualified path and file name of the trained classifier (.RData file)
+      VAL=$(awk -F\=  '/^\<FIX_CLASSIFIER\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          FIX_CLASSIFIER=${VAL}
+      fi
+
+      # Classifier label. In general, this will be the name of the classifier
+      # without the RData suffix
+      VAL=$(awk -F\=  '/^\<FIX_CL_LABEL\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          FIX_CL_LABEL=${VAL}
+      fi
+
+      # Chosen classifier threshold
+      VAL=$(awk -F\=  '/^\<FIX_THR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          FIX_THR=${VAL}
+      fi
+
+
+      # Perform non-local means denoising
+      # This, in principle, improves signal to noise ratio without being aggressive
+      # But, since it may take some time to compute, there are no thorough investigation of the effects
+      VAL=$(awk -F\=  '/^\<DO_NLM\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          DO_NLM=${VAL}
+      fi
+
+
+      # Extract some nuisance signals, such as CSF and WM average signals
+      # [TODO] Might be obsolete
+      VAL=$(awk -F\=  '/^\<EXTRACT_NUIS\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          EXTRACT_NUIS=${VAL}
+      fi
+
+
+
+      # Effective echo spacing. Necessary for fieldmap distortion correction
+      # EES(ms) = 1000 * (water-fat shift (per pixel)/(water-fat shift (in Hz) * echo train length))
+      # (see https://support.brainvoyager.com/brainvoyager/functional-analysis-preparation/29-pre-processing/78-epi-distortion-correction-echo-spacing-and-bandwidth#:~:text=Echo%20spacing%20and%20acceleration,0.5%2F2%20%3D%200.25ms.)
+      VAL=$(awk -F\=  '/^\<EES\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          EES=${VAL}
+      fi
+
+      # After correcting for motion, uses the estimated voxelwise motion signals
+      # and regress residual motion
+      # This steps seems to help removing a lot of spurious variance from edge
+      # voxels and is helpful for ICA estimation
+      # HOWEVER, it is not validated in the literature as a step
+      VAL=$(awk -F\=  '/^\<CORRECT_DVOX\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          CORRECT_DVOX=${VAL}
+      fi
+
+
+      # The final regression model used before data normalization
+      VAL=$(awk -F\=  '/^\<REG_MODEL\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          REG_MODEL=${VAL}
+      fi
+
+      # Framewise displacement threshold used in censoring motion
+      VAL=$(awk -F\=  '/^\<FD_THR\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          FD_THR=${VAL}
+      fi
+
+
+      # SCRIPT used to import files (always project specific)
+      VAL=$(awk -F\=  '/^\<IMPORT_SCRIPT\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          IMPORT_SCRIPT=${VAL}
+      fi
+done
 
 FINALDIR=`echo ${FINALDIR//@SUB@/${SUB}} | tr -d '"'`
 OUTDIR=`echo ${OUTDIR//@SUB@/${SUB}} | tr -d '"'`
-TMPDIR=`echo ${TMPDIR} | tr -d '"'`
 ABIN=`echo ${ABIN} | tr -d '"'`
-ANAT_PROC=`echo ${ANAT_PROC} | tr -d '"'`
 
+
+
+WDIR_ORIG=${WDIR}
+#FOR now, they are the same, but still need to check it better if it makes sense
+# to separate
+GROUPDIR=${DARTEL_TEMPLATE_DIR}
 
 
 print_debug()
@@ -234,11 +453,6 @@ FIXDIR=${OUTDIR}/FIX
 LOGDIR=${OUTDIR}/logs
 
 
-#TODO MOVE this to appropriate sections...
-
-
-#GROUPDIR='/home/luna.kuleuven.be/u0101486/workspace/data/ConnectEx/Template/'
-
 
 # =================================================
 #            PREPROCESSING START
@@ -247,29 +461,30 @@ if [ "$DO_COPY" -eq "1" ]; then
       printf " [$SUB] Copying Files ... "
       START=$(date -u +%s.%N)
 
+      {
+        if test ! -z "${BLOCK}"; then
+              # Call the project specific script
+              # This is for the case a specific file among many must be called
+              source ${IMPORT_SCRIPT} ${SUB} ${OUTDIR} ${BLOCK}
+        else
+              # Call the project specific script
+              source ${IMPORT_SCRIPT} ${SUB} ${OUTDIR}
+        fi
 
-      if test ! -z "${BLOCK}"; then
-            # Call the project specific script
-            source ${IMPORT_SCRIPT} ${SUB} ${OUTDIR} ${BLOCK}
-      else
-            # Call the project specific script
-            source ${IMPORT_SCRIPT} ${SUB} ${OUTDIR}
-      fi
+        if ! test -f "${OUTDIR}/rev_phase.nii"; then
+              # Failed to import fieldmap, thus ensure this step is not performed
+              echo "No Fieldmap has been imported. No geometric distortion will be performed."
+              CORRECT_GEOM_DISTORT=0
+        fi
 
-      if ! test -f "${OUTDIR}/rev_phase.nii"; then
-            # Failed to import fieldmap, thus ensure this step is not performed
-            echo "No Fieldmap has been imported. No geometric distortion will be performed."
-            DO_FMAP=0
-      fi
+        rm -f -r ${IMGDIR}
+        rm -f -r ${ANATDIR}
+        rm -f -r ${LOGDIR}
 
-      rm -f -r ${IMGDIR}
-      rm -f -r ${ANATDIR}
-      rm -f -r ${LOGDIR}
-
-      mkdir ${IMGDIR}
-      mkdir ${ANATDIR}
-      mkdir ${LOGDIR}
-
+        mkdir ${IMGDIR}
+        mkdir ${ANATDIR}
+        mkdir ${LOGDIR}
+      } &> /dev/null
       END=$(date -u +%s.%N)
       DIFF=`echo "( $END - $START )" | bc`
       printf "DONE [%.1f s]\n" $DIFF
@@ -282,14 +497,9 @@ fi
 # ------------------------------------------------------------------------
 
 
-
-# PERFORM Motion correction and other spatial processing in native space
-# The order in which those steps are performed is a topic of debate.
-# As far as I know, there is no objectively best way of defining this
-
 # Here, I am following the sequence proposed by Jo et al. 2013
 # Effective Preprocessing Procedures Virtually Eliminate Distance-Dependent Motion Artifacts in Resting State FMRI
-if [ "$DO_REG" -eq "1" ]; then
+if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
       printf "[$SUB] Starting Native space preprocessing ... "
       START=$(date -u +%s.%N)
 
@@ -304,10 +514,9 @@ if [ "$DO_REG" -eq "1" ]; then
 
 
             PREF=''
-            #if test ! -f "${OUTDIR}/slice_acq.txt"; then
-            # File is not present (normally this should happen because data was not imported from DICOM)
-            python ./util/write_slice_timing.py -tr ${TR} -nsl ${NZ} -acq ${ACQ_TYPE} -out ${OUTDIR}/slice_acq.txt
-            #fi
+
+            # Estimate acquisition time for each slice
+            python ${UTILDIR}/write_slice_timing.py -tr ${TR} -nsl ${NZ} -acq ${ACQ_TYPE} -out ${OUTDIR}/slice_acq.txt
 
 
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -324,101 +533,93 @@ if [ "$DO_REG" -eq "1" ]; then
                   log_command_div 'Despike END'
             fi
 
+            # Might help a bit by slightly rmeoving noise
+            if [ "$DO_NLM" -eq "1" ]; then
+                  mkdir ${OUTDIR}/tmp
+                  3dTsplit4D -prefix ${OUTDIR}/tmp/func_data.nii -keep_datum ${OUTDIR}/${PREF}func_data.nii
+                  3dAutomask -prefix ${OUTDIR}/nat_mask.nii -dilate 2  ${OUTDIR}/${PREF}func_data.nii
+                  parallel -j6 --line-buffer nlm_smooth ::: $(seq 0 ${NVOLS}) ::: ${OUTDIR} ::: ${ABIN} ::: ${OUTDIR}/nat_mask.nii
 
+                  3dTcat -prefix ${OUTDIR}/s${PREF}func_data.nii -tr ${TR} ${OUTDIR}/tmp/func_data_n*.nii
+                  rm -f -r ${OUTDIR}/tmp
 
+                  3dcalc -a ${OUTDIR}/${PREF}func_data.nii -b ${OUTDIR}/s${PREF}func_data.nii -expr "a-b" -prefix ${OUTDIR}/nlm_result.nii
+                  python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b s${PREF}func_data.nii -msg1 'Before NLM' -msg2 'After NLM'
+                  mv ${OUTDIR}/r2${PREF}func_data.nii ${OUTDIR}/r${PREF}func_data.nii
 
+                  PREF=s${PREF}
+            fi
 
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             #
-            # Motion correction
-            #
-            # There are 2 methods here: 3dvolreg or SPM INRIAlign
-            # My tests seem to confirm the idea that slomoco performs better than 3dvolreg
-            # This procedure, however, is extremely computationaly intensive (i.e. it takes hours instead of minutes to complete)
+            # Motion correction [MANDATORY STEP]
             #
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            if [ "$MOCO" == "inria" ]; then
-                  echo 'Not implemented. Sorry, everything will break.'
+            log_command_div 'Motion Correction START'
+
+            3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/func_data.nii
+
+            # Finds the volume with minimizes intensity distance
+            VOL2MED_COR=`3dTqual -automask ${OUTDIR}/${PREF}func_data.nii`
+            MIN_VAL=100
+            REF_VOL=0
+            IDX=0
+            while IFS=' \t' read -r  qualVal;
+            do
+                  if (( $(echo "${qualVal} < ${MIN_VAL}" | bc -l) )); then
+                        MIN_VAL=${qualVal}
+                        echo 'New MIN : [' $IDX ']: ' ${qualVal}
+                        REF_VOL=$IDX
+
+                  fi
+                  IDX=$((IDX+1))
+            done <<< "${VOL2MED_COR}";
+
+            print_debug 'Motion Correction' "3dvolreg -heptic -prefix ${OUTDIR}/r${PREF}func_data.nii -base ${REF_VOL} -rot_thresh 0.02  \
+                        -x_thresh 0.01 -zpad 5 -maxite 100 -1Dfile ${OUTDIR}/motion_estimate.par -maxdisp1D ${OUTDIR}/maximum_disp.1d  \
+                         ${OUTDIR}/${PREF}func_data.nii"
+
+
+            3dTcat -prefix ${OUTDIR}/ref_vol.nii -TR ${TR} ${OUTDIR}/${PREF}func_data.nii[${REF_VOL}]
+            3dAutomask  -apply_prefix ${OUTDIR}/ref_vol_masked.nii ${OUTDIR}/ref_vol.nii
+
+            # Actual motion correction [2-pass]
+            3dvolreg -Fourier -prefix ${OUTDIR}/r${PREF}func_data.nii -twopass -base ${OUTDIR}/ref_vol_masked.nii \
+                  -1Dfile ${OUTDIR}/motion_estimate.par -maxdisp1D ${OUTDIR}/maximum_disp.1d -savedisp ${OUTDIR}/voxel_displ.nii \
+                   ${OUTDIR}/${PREF}func_data.nii
+
+            # IF residual voxelwise motion correction is desired
+            if [ "${CORRECT_DVOX}" == "1" ]; then
+                  3dREMLfit -input ${OUTDIR}/r${PREF}func_data.nii \
+                      -dsort ${OUTDIR}/voxel_displ_DX.nii \
+                      -dsort ${OUTDIR}/voxel_displ_DY.nii \
+                      -dsort ${OUTDIR}/voxel_displ_DZ.nii \
+                      -GOFORIT \
+                      -Oerrts ${OUTDIR}/r2${PREF}func_data.nii #-Rwherr ${OUTDIR}/r2${PREF}func_data.nii
+
+                  fslmaths ${OUTDIR}/${PREF}func_data.nii -Tmean ${OUTDIR}/mean.nii
+                  3dcalc -a ${OUTDIR}/r2${PREF}func_data.nii -b ${OUTDIR}/mean.nii.gz -expr 'a+b' -prefix ${OUTDIR}/rm${PREF}func_data.nii
+                  mv ${OUTDIR}/rm${PREF}func_data.nii ${OUTDIR}/r2${PREF}func_data.nii
+
+                  python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a r${PREF}func_data.nii -b r2${PREF}func_data.nii -msg1 'Volreg' -msg2 'Volreg DX'
+                  mv ${OUTDIR}/r2${PREF}func_data.nii ${OUTDIR}/r${PREF}func_data.nii
+
+                  rm -f ${OUTDIR}/voxel_*.nii
             fi
 
+            1dplot -thick -volreg -png ${OUTDIR}/motion_estimate_0.png -one ${OUTDIR}/motion_estimate.par
+            1dplot -thick -png ${OUTDIR}/maximum_disp_0.png -one ${OUTDIR}/maximum_disp.1d
+            1dplot -thick -png ${OUTDIR}/maximum_disp_delt_0.png -one ${OUTDIR}/maximum_disp.1d_delt
 
-            #mkdir ${OUTDIR}/tmp
-            #3dTsplit4D -prefix ${OUTDIR}/tmp/func_data.nii -keep_datum ${OUTDIR}/${PREF}func_data.nii
-            #3dAutomask -prefix ${OUTDIR}/nat_mask.nii -dilate 2  ${OUTDIR}/${PREF}func_data.nii
-            #parallel -j6 --line-buffer nlm_smooth ::: $(seq 0 ${NVOLS}) ::: ${OUTDIR} ::: ${ABIN} ::: ${OUTDIR}/nat_mask.nii
+            mv ${OUTDIR}/*.png ${IMGDIR}
+            mv ${OUTDIR}/*.gif ${IMGDIR}
 
-            #3dTcat -prefix ${OUTDIR}/s${PREF}func_data.nii -tr ${TR} ${OUTDIR}/tmp/func_data_n*.nii
-            #rm -f -r ${OUTDIR}/tmp
-            #PREF=s${PREF}
-
-            if [ "$MOCO" == "3dvolreg" ]; then
-                  log_command_div 'Motion Correction START'
-
-                  3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/func_data.nii
-                  #${WDIR}/proc_scripts/align_pestica.sh ${OUTDIR} func_data ${TR} 0
-                  #python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b p${PREF}func_data.nii -msg1 'RAW' -msg2 'PESTICA'
-
-                  #mv ${OUTDIR}/p${PREF}func_data.nii ${OUTDIR}/${PREF}func_data.nii
-
-                  VOL2MED_COR=`3dTqual -automask ${OUTDIR}/${PREF}func_data.nii`
-                  MIN_VAL=100
-                  REF_VOL=0
-                  IDX=0
-                  while IFS=' \t' read -r  qualVal;
-                  do
-                        if (( $(echo "${qualVal} < ${MIN_VAL}" | bc -l) )); then
-                              MIN_VAL=${qualVal}
-                              echo 'New MIN : [' $IDX ']: ' ${qualVal}
-                              REF_VOL=$IDX
-
-                        fi
-                        IDX=$((IDX+1))
-                  done <<< "${VOL2MED_COR}";
-
-                  print_debug 'Motion Correction' "3dvolreg -heptic -prefix ${OUTDIR}/r${PREF}func_data.nii -base ${REF_VOL} -rot_thresh 0.02  \
-                              -x_thresh 0.01 -zpad 5 -maxite 100 -1Dfile ${OUTDIR}/motion_estimate.par -maxdisp1D ${OUTDIR}/maximum_disp.1d  \
-                               ${OUTDIR}/${PREF}func_data.nii"
-
-                  # Motion correction
-                  # Performing the realignment to the mean volume increases the processing time quite a lot, without any major benefit
-                  # (at least that is what Oakes et al. 2005 say ['Comparison of fMRI motion correction software tools'], though connectivity was not investigated )
-                  3dTcat -prefix ${OUTDIR}/ref_vol.nii -TR ${TR} ${OUTDIR}/${PREF}func_data.nii[${REF_VOL}]
-                  #3dmerge -prefix ${OUTDIR}/ref_vol_smooth.nii -1blur_fwhm 1 ${OUTDIR}/ref_vol.nii
-                  3dAutomask  -apply_prefix ${OUTDIR}/ref_vol_masked.nii ${OUTDIR}/ref_vol.nii
-                   #-savedisp ${OUTDIR}/voxel_displ.nii
-                  3dvolreg -Fourier -prefix ${OUTDIR}/r${PREF}func_data.nii -base ${OUTDIR}/ref_vol_masked.nii -rot_thresh 0.005 -delta 0.1 \
-                        -x_thresh 0.001 -zpad 10 -maxite 60 -1Dfile ${OUTDIR}/motion_estimate.par -maxdisp1D ${OUTDIR}/maximum_disp.1d -savedisp ${OUTDIR}/voxel_displ.nii \
-                         ${OUTDIR}/${PREF}func_data.nii
-
-                  #3dREMLfit -input ${OUTDIR}/r${PREF}func_data.nii \
-                  #    -dsort ${OUTDIR}/voxel_displ_DX.nii \
-                  #    -dsort ${OUTDIR}/voxel_displ_DY.nii \
-                  #    -dsort ${OUTDIR}/voxel_displ_DZ.nii \
-                  #    -GOFORIT \
-                  #    -Oerrts ${OUTDIR}/r2${PREF}func_data.nii #-Rwherr ${OUTDIR}/p${PREF}func_data.nii
-
-                  #fslmaths ${OUTDIR}/${PREF}func_data.nii -Tmean ${OUTDIR}/mean.nii
-                  #3dcalc -a ${OUTDIR}/r2${PREF}func_data.nii -b ${OUTDIR}/mean.nii.gz -expr 'a+b' -prefix ${OUTDIR}/rm${PREF}func_data.nii
-                  #mv ${OUTDIR}/rm${PREF}func_data.nii ${OUTDIR}/r2${PREF}func_data.nii
+            PREF=r${PREF}
+            log_command_div 'Motion Correction END'
 
 
 
-                  #python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a r${PREF}func_data.nii -b r2${PREF}func_data.nii -msg1 'Volreg' -msg2 'Volreg DX'
-                  #mv ${OUTDIR}/r2${PREF}func_data.nii ${OUTDIR}/r${PREF}func_data.nii
-
-                  1dplot -thick -volreg -png ${OUTDIR}/motion_estimate_0.png -one ${OUTDIR}/motion_estimate.par
-                  1dplot -thick -png ${OUTDIR}/maximum_disp_0.png -one ${OUTDIR}/maximum_disp.1d
-                  1dplot -thick -png ${OUTDIR}/maximum_disp_delt_0.png -one ${OUTDIR}/maximum_disp.1d_delt
-
-                  mv ${OUTDIR}/*.png ${IMGDIR}
-                  mv ${OUTDIR}/*.gif ${IMGDIR}
-
-                  PREF=r${PREF}
-                  log_command_div 'Motion Correction END'
-
-            fi
-
-            if [ "${DO_PEST}" == "4" ]; then
+            if [ "${ESTIMATE_PHYSIO}" == "4" ]; then
                   3dAutomask -prefix ${OUTDIR}/ref_mask.nii -dilate 1 ${OUTDIR}/${PREF}func_data.nii
                   3dmerge -prefix ${OUTDIR}/tmp_smooth.nii -doall -1blur_fwhm 1 ${OUTDIR}/${PREF}func_data.nii
 
@@ -450,7 +651,7 @@ if [ "$DO_REG" -eq "1" ]; then
                   mv ${OUTDIR}/*.gif ${IMGDIR}
             fi
 
-            if [ "${DO_PEST}" == "3" ]; then
+            if [ "${ESTIMATE_PHYSIO}" == "3" ]; then
                   log_command_div 'PHYSIO CORRECTION'
                   # At the moment, only working for one specific data set
                   # 4 --> Number of dummy scans. Pass this to parameters
@@ -459,13 +660,11 @@ if [ "$DO_REG" -eq "1" ]; then
 
 
                   mv ${OUTDIR}/slice_timing_g.txt ${OUTDIR}/slice_acq.txt
-                  #python ./util/write_slice_timing.py -tr ${TR} -nsl ${NZ} -acq 3 -out ${OUTDIR}/slice_acq.txt
-
 
                   3dREMLfit -input ${OUTDIR}/${PREF}func_data.nii \
                       -addbase ${OUTDIR}/physio_reg.ortho \
                       -GOFORIT \
-                      -Oerrts ${OUTDIR}/p${PREF}func_data.nii #-Rwherr ${OUTDIR}/p${PREF}func_data.nii
+                      -Oerrts ${OUTDIR}/p${PREF}func_data.nii
 
                   fslmaths ${OUTDIR}/${PREF}func_data.nii -Tmean ${OUTDIR}/mean.nii
                   3dcalc -a ${OUTDIR}/p${PREF}func_data.nii -b ${OUTDIR}/mean.nii.gz -expr 'a+b' -prefix ${OUTDIR}/pm${PREF}func_data.nii
@@ -481,41 +680,31 @@ if [ "$DO_REG" -eq "1" ]; then
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-            if [ "$DO_SLC" -eq "1" ]; then
+            if [ "$CORRECT_SLICE_TIME" -eq "1" ]; then
                   print_debug 'Slice timing correction'
                   # Slice timing correction  [Parker et al. 2017 -- 10.1016/j.media.2016.08.006]
                   CF=`echo "(1/${TR})/2" | bc -l`
 
                   if test ! -f "${OUTDIR}/slice_acq.txt"; then
                         # File is not present (normally this should happen because data was not imported from DICOM)
-                        python ./util/write_slice_timing.py -tr ${TR} -nsl ${NZ} -acq ${ACQ_TYPE} -out ${OUTDIR}/slice_acq.txt
+                        python ${UTILDIR}/write_slice_timing.py -tr ${TR} -nsl ${NZ} -acq ${ACQ_TYPE} -out ${OUTDIR}/slice_acq.txt
                   fi
-
-                  #if (( $(echo "$TR >= 2.5" | bc -l) )); then
-                  #      # Used to preserve the full power spectrum
-                  #      CF=1
-                  #fi
 
                   # Correct slice acquisition to the middle of the volume acquisition
                   # To correct to the first slice, set REF_TIME to 0
                   # TODO [10.09.19] Pass this to the parameter section of the file
                   REF_TIME=`echo "${TR}/2" | bc -l`
 
-                  #FIXME slice timing name is now not consistent
-                  #print_debug 'Slice timing correction' "filtershift --in=${OUTDIR}/${PREF}func_data.nii \
-                  #  --cf=${CF} --rt=${REF_TIME} --TR=${TR} --timing=${OUTDIR}/slice_timing_gs.txt --out=${OUTDIR}/a${PREF}func_data.nii"
-
-                  #--rt=${REF_TIME}
-                  # --rs=30 #--timing=${OUTDIR}/slice_timing_gs.txt
-                  filtershift --in=${OUTDIR}/${PREF}func_data.nii --timing=${OUTDIR}/slice_acq.txt --cf=1 --timing=${OUTDIR}/slice_acq.txt --TR=${TR} --out=${OUTDIR}/a${PREF}func_data.nii
+                  filtershift --in=${OUTDIR}/${PREF}func_data.nii --timing=${OUTDIR}/slice_acq.txt --timing=${OUTDIR}/slice_acq.txt --TR=${TR} --out=${OUTDIR}/a${PREF}func_data.nii
                   gunzip -f ${OUTDIR}/a${PREF}func_data.nii.gz
-                  python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b a${PREF}func_data.nii -msg1 'Before STC' -msg2 'After STC'
+                  python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b a${PREF}func_data.nii -msg1 'Before STC' -msg2 'After STC' -ord z
                   PREF=a${PREF}
 
                   mv ${OUTDIR}/*.png ${IMGDIR}
                   mv ${OUTDIR}/*.gif ${IMGDIR}
                   log_command_div 'Slice Timing correction'
             fi
+
 
             if [ "$DO_DPK" -eq "2" ]; then
                   print_debug 'Despiking [-localedit -NEW]'
@@ -541,7 +730,7 @@ if [ "$DO_REG" -eq "1" ]; then
 
 
             # Distortion correction using reverse phase acquisition
-            if [ "$DO_FMAP" -eq "1" ]; then
+            if [ "$CORRECT_GEOM_DISTORT" -eq "1" ]; then
                   print_debug 'Reverse phase fieldmap estimation and distortion correction'
 
                   # NOTE: Topup fails with odd number of slices, thus we zero pad if this occurs
@@ -630,7 +819,7 @@ if [ "$DO_REG" -eq "1" ]; then
                   rm -f ${OUTDIR}/blipdown_mi.nii
                   rm -f ${OUTDIR}/blipup_m.nii
 
-                  python ./util/write_topup_file.py -out ${OUTDIR}/topupfield.txt
+                  python ${UTILDIR}/write_topup_file.py -out ${OUTDIR}/topupfield.txt
 
                   # Fieldmap estimation [ONLY estimation]
                   print_debug 'TOPUP command' "topup --imain=${OUTDIR}/topup_data.nii --datain=${OUTDIR}/topupfield.txt --out=${OUTDIR}/topup_results --fout=${OUTDIR}/fieldmap --iout=${OUTDIR}/w_topup_data --estmov=0,0,0  --regmod=membrane_energy  --minmet=1,1,1 --verbose --warpres=8,6,4 --miter=32,12,4 --subsamp=4,2,1 --fwhm=6,4,2"
@@ -649,17 +838,6 @@ if [ "$DO_REG" -eq "1" ]; then
                   applytopup --imain=${OUTDIR}/${PREF}func_data.nii --datain=${OUTDIR}/topupfield.txt --topup=${OUTDIR}/topup_results --inindex=1 --method=jac --interp=spline --out=${OUTDIR}/u${PREF}func_data
                   gunzip -f ${OUTDIR}/u${PREF}func_data.nii.gz
 
-                  if ! test -f "${OUTDIR}/voxel_displ_DZ.nii"; then
-                      applytopup --imain=${OUTDIR}/voxel_displ_DX.nii --datain=${OUTDIR}/topupfield.txt --topup=${OUTDIR}/topup_results --inindex=1 --method=jac --interp=spline --out=${OUTDIR}/wvoxel_displ_DX
-                      mv ${OUTDIR}/wvoxel_displ_DX.nii ${OUTDIR}/voxel_displ_DX.nii
-
-                      applytopup --imain=${OUTDIR}/voxel_displ_DY.nii --datain=${OUTDIR}/topupfield.txt --topup=${OUTDIR}/topup_results --inindex=1 --method=jac --interp=spline --out=${OUTDIR}/wvoxel_displ_DY
-                      mv ${OUTDIR}/wvoxel_displ_DZ.nii ${OUTDIR}/voxel_displ_DZ.nii
-
-                      applytopup --imain=${OUTDIR}/voxel_displ_DZ.nii --datain=${OUTDIR}/topupfield.txt --topup=${OUTDIR}/topup_results --inindex=1 --method=jac --interp=spline --out=${OUTDIR}/wvoxel_displ_DZ
-                      mv ${OUTDIR}/wvoxel_displ_DZ.nii ${OUTDIR}/voxel_displ_DZ.nii
-                  fi
-
                   python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b u${PREF}func_data.nii -type mean -msg1 'Before FMAP' -msg2 'After FMAP'
                   PREF=u${PREF}
                   log_command_div 'FIELDMAP CORRECTION'
@@ -669,7 +847,7 @@ if [ "$DO_REG" -eq "1" ]; then
 
 
             # Distortion correction using acquired fieldmap (magnitude and phase)
-            if [ "$DO_FMAP" -eq "2" ]; then
+            if [ "$CORRECT_GEOM_DISTORT" -eq "2" ]; then
                   print_debug 'Fieldmap correction'
 
                   fslmaths ${OUTDIR}/${PREF}func_data -Tmean  ${OUTDIR}/mean_func
@@ -683,16 +861,6 @@ if [ "$DO_REG" -eq "1" ]; then
 
                   #TODO Pass unwarpdir to configuration
                   fugue -i ${OUTDIR}/${PREF}func_data.nii --dwell=${EES} --loadfmap=${OUTDIR}/fmap_phase_rads_func -u ${OUTDIR}/u${PREF}func_data.nii --unwarpdir=y-
-
-                  if test -f "${OUTDIR}/voxel_displ_DX.nii"; then
-                      fugue -i ${OUTDIR}/voxel_displ_DX.nii --dwell=${EES} --loadfmap=${OUTDIR}/fmap_phase_rads_func -u ${OUTDIR}/uvoxel_disp_DX.nii --unwarpdir=y-
-                      fugue -i ${OUTDIR}/voxel_displ_DY.nii --dwell=${EES} --loadfmap=${OUTDIR}/fmap_phase_rads_func -u ${OUTDIR}/uvoxel_disp_DY.nii --unwarpdir=y-
-                      fugue -i ${OUTDIR}/voxel_displ_DZ.nii --dwell=${EES} --loadfmap=${OUTDIR}/fmap_phase_rads_func -u ${OUTDIR}/uvoxel_disp_DZ.nii --unwarpdir=y-
-
-                      mv ${OUTDIR}/uvoxel_disp_DX.nii ${OUTDIR}/voxel_displ_DX.nii
-                      mv ${OUTDIR}/uvoxel_disp_DY.nii ${OUTDIR}/voxel_displ_DY.nii
-                      mv ${OUTDIR}/uvoxel_disp_DZ.nii ${OUTDIR}/voxel_displ_DZ.nii
-                  fi
 
                   gunzip -f ${OUTDIR}/u${PREF}func_data.nii.gz
                   python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b u${PREF}func_data.nii -type mean -msg1 'Before FMAP' -msg2 'After FMAP'
@@ -708,32 +876,15 @@ if [ "$DO_REG" -eq "1" ]; then
             if [ "$DO_DEOBL" -eq "1" ]; then
                   print_debug 'Deobliquing volumes'
 
-                  #3dWarp -deoblique -newgrid ${DEOBL_VOX} -NN -prefix ${OUTDIR}/w${PREF}func_data.nii ${OUTDIR}/${PREF}func_data.nii
-                  #cp ${OUTDIR}/${PREF}func_data.nii ${OUTDIR}/w${PREF}func_data.nii
                   3dresample -prefix ${OUTDIR}/w${PREF}func_data.nii -orient ras -input ${OUTDIR}/${PREF}func_data.nii
                   3drefit -deoblique ${OUTDIR}/w${PREF}func_data.nii
-
-
-                  if ! test -f "${OUTDIR}/voxel_displ_DZ.nii"; then
-                      3dresample -prefix ${OUTDIR}/wvoxel_displ_DX.nii -orient ras -input ${OUTDIR}/voxel_displ_DX.nii
-                      3drefit -deoblique ${OUTDIR}/wvoxel_displ_DX.nii
-                      mv ${OUTDIR}/wvoxel_displ_DX.nii ${OUTDIR}/voxel_displ_DX.nii
-
-                      3dresample -prefix ${OUTDIR}/wvoxel_displ_DY.nii -orient ras -input ${OUTDIR}/voxel_displ_DY.nii
-                      3drefit -deoblique ${OUTDIR}/wvoxel_displ_DY.nii
-                      mv ${OUTDIR}/wvoxel_displ_DZ.nii ${OUTDIR}/voxel_displ_DZ.nii
-
-                      3dresample -prefix ${OUTDIR}/wvoxel_displ_DZ.nii -orient ras -input ${OUTDIR}/voxel_displ_DZ.nii
-                      3drefit -deoblique ${OUTDIR}/wvoxel_displ_DZ.nii
-                      mv ${OUTDIR}/wvoxel_displ_DZ.nii ${OUTDIR}/voxel_displ_DZ.nii
-                  fi
 
                   PREF=w${PREF}
                   log_command_div 'DEOBLIQUE'
             fi
 
 
-            if [ "$DO_ING" -eq "1" ]; then
+            if [ "$INTENSITY_NORM" -eq "1" ]; then
                   print_debug 'Global intensity normalization' 'fslmaths ${OUTDIR}/${PREF}func_data -ing ${GLOB_VAL} ${OUTDIR}/i${PREF}func_data'
                   fslmaths ${OUTDIR}/${PREF}func_data -nan -thrP 10 -ing ${GLOB_VAL} ${OUTDIR}/i${PREF}func_data
                   gunzip -f ${OUTDIR}/i${PREF}func_data.nii.gz
@@ -747,54 +898,37 @@ if [ "$DO_REG" -eq "1" ]; then
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
             # Update brain mask
-            rm -f ${OUTDIR}/nat_mask.nii
-
+            #rm -f ${OUTDIR}/nat_mask.nii
             cp -f ${OUTDIR}/${PREF}func_data.nii ${OUTDIR}/proc_data_native.nii
 
-            fslmaths ${OUTDIR}/proc_data_native.nii -Tmean ${OUTDIR}/proc_data_native_median.nii
-            fast -n 4 --nopve -N -o ${OUTDIR}/func_seg.nii ${OUTDIR}/proc_data_native_median.nii
-            fslmaths ${OUTDIR}/func_seg_seg.nii -thr 1.5 -bin -fillh26 -fillh26 -fillh -fillh ${OUTDIR}/nat_mask.nii
-            gunzip -f ${OUTDIR}/nat_mask.nii
+            #fslmaths ${OUTDIR}/proc_data_native.nii -Tmean ${OUTDIR}/proc_data_native_median.nii
+            #fast -n 4 --nopve -N -o ${OUTDIR}/func_seg.nii ${OUTDIR}/proc_data_native_median.nii
+            #fslmaths ${OUTDIR}/func_seg_seg.nii -thr 1.5 -bin -fillh26 -fillh26 -fillh -fillh ${OUTDIR}/nat_mask.nii
+            #gunzip -f ${OUTDIR}/nat_mask.nii
 
-            rm -f ${OUTDIR}/proc_data_native_median.nii.gz
+            #rm -f ${OUTDIR}/proc_data_native_median.nii.gz
 
 
-            #3dAutomask -prefix ${OUTDIR}/nat_mask.nii -apply_prefix ${OUTDIR}/proc_data_native.nii ${OUTDIR}/${PREF}func_data.nii
+            3dAutomask -prefix ${OUTDIR}/nat_mask.nii -apply_prefix ${OUTDIR}/proc_data_native.nii ${OUTDIR}/${PREF}func_data.nii
             #3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/${PREF}func_data.nii
 
 
-            3dcalc -a ${OUTDIR}/proc_data_native.nii -b ${OUTDIR}/nat_mask.nii -expr "a*b" -prefix ${OUTDIR}/proc_data_native_masked.nii
+            #3dcalc -a ${OUTDIR}/proc_data_native.nii -b ${OUTDIR}/nat_mask.nii -expr "a*b" -prefix ${OUTDIR}/proc_data_native_masked.nii
 
-            mv ${OUTDIR}/proc_data_native_masked.nii ${OUTDIR}/proc_data_native.nii
+            #mv ${OUTDIR}/proc_data_native_masked.nii ${OUTDIR}/proc_data_native.nii
 
             fslmaths ${OUTDIR}/proc_data_native.nii -Tmean ${OUTDIR}/mean_func_native.nii
             gunzip -f ${OUTDIR}/mean_func_native.nii.gz
             copy_header ${OUTDIR}/mean_func_native.nii ${OUTDIR}/nat_mask.nii
 
-
+            # This just saves a bit of representation space
             3dcalc -a ${OUTDIR}/proc_data_native.nii -expr "a*1" -short -gscale -prefix ${OUTDIR}/proc_data_native_2.nii
             mv ${OUTDIR}/proc_data_native_2.nii  ${OUTDIR}/proc_data_native.nii
-
-            if test -f "${OUTDIR}/voxel_displ_DZ.nii"; then
-              3dcalc -a ${OUTDIR}/voxel_displ_DZ.nii -expr "a*1" -short -gscale -prefix ${OUTDIR}/voxel_displ_DZ_2.nii
-              mv ${OUTDIR}/voxel_displ_DZ_2.nii  ${OUTDIR}/voxel_displ_DZ.nii
-
-              3dcalc -a ${OUTDIR}/voxel_displ_DX.nii -expr "a*1" -short -gscale -prefix ${OUTDIR}/voxel_displ_DX_2.nii
-              mv ${OUTDIR}/voxel_displ_DX_2.nii  ${OUTDIR}/voxel_displ_DX.nii
-
-              3dcalc -a ${OUTDIR}/voxel_displ_DY.nii -expr "a*1" -short -gscale -prefix ${OUTDIR}/voxel_displ_DY_2.nii
-              mv ${OUTDIR}/voxel_displ_DY_2.nii  ${OUTDIR}/voxel_displ_DY.nii
-
-              copy_header ${OUTDIR}/proc_data_native.nii ${OUTDIR}/voxel_displ_DZ.nii
-              copy_header ${OUTDIR}/proc_data_native.nii ${OUTDIR}/voxel_displ_DX.nii
-              copy_header ${OUTDIR}/proc_data_native.nii ${OUTDIR}/voxel_displ_DY.nii
-            fi
-
 
             mv ${OUTDIR}/*.png ${IMGDIR}
             mv ${OUTDIR}/*.gif ${IMGDIR}
 
-            if [ "$DO_CLEAN" -eq "1" ]; then
+            if [ "$CLEAN_INTERMEDIATE" -eq "1" ]; then
                   cp ${OUTDIR}/pestica4/*.png ${OUTDIR}/
                   rm -r -f ${OUTDIR}/pestica4
 
@@ -808,14 +942,10 @@ if [ "$DO_REG" -eq "1" ]; then
                   rm -f ${OUTDIR}/*func_data.nii.gz
                   rm -f ${OUTDIR}/*.BRIK
                   rm -f ${OUTDIR}/*.HEAD
-
-                  #rm -f ${OUTDIR}/voxel_displ_DX.nii
-                  #rm -f ${OUTDIR}/voxel_displ_DY.nii
-                  #rm -f ${OUTDIR}/voxel_displ_DZ.nii
             fi
 
 
-      } &> ${LOGDIR}/Native_PreProcessing.log
+      } &> ${LOGDIR}/02_Native_PreProcessing.log
       END=$(date -u +%s.%N)
       DIFF=`echo "( $END - $START )" | bc`
       printf "DONE [%.1f s]\n" $DIFF
@@ -849,7 +979,27 @@ if [ "$DO_ANAT" -eq "1" ]; then
                 #ANATOMY processing
                 ANATDIR=${OUTDIR}/anat
                 mkdir ${ANATDIR}
+
+                REIMPORT=1
+                if [ "$REIMPORT" -eq "1" ]; then
                 rm -f ${ANATDIR}/*
+
+                # Estimate mean functional image and T1, and improves a little bit the
+                # SNR, which helps co-registration in some cases
+
+                #FUNC
+                fslmaths ${OUTDIR}/proc_data_native.nii -Tmean ${ANATDIR}/mean_func_data_m.nii
+                gunzip -f ${ANATDIR}/mean_func_data_m.nii.gz
+                3dAutomask -apply_prefix ${ANATDIR}/mean_func_data_m2.nii ${ANATDIR}/mean_func_data_m.nii
+
+                fslmaths ${ANATDIR}/mean_func_data_m2.nii -thrp 30 ${ANATDIR}/mean_func_data_m3.nii
+                gunzip -f ${ANATDIR}/mean_func_data_m3.nii.gz
+
+                ${ABIN}/DenoiseImage -i ${ANATDIR}/mean_func_data_m3.nii -r 4x4x4 -n Rician -o [ ${ANATDIR}/mean_func_data_m4.nii ]
+                copy_header  ${ANATDIR}/mean_func_data_m.nii  ${ANATDIR}/mean_func_data_m4.nii
+                mv ${ANATDIR}/mean_func_data_m4.nii  ${ANATDIR}/mean_func_data_nds.nii
+                rm -f ${ANATDIR}/mean_func_data_m*
+
 
                 cp ${OUTDIR}/t1.nii ${ANATDIR}/anat.nii
 
@@ -860,136 +1010,239 @@ if [ "$DO_ANAT" -eq "1" ]; then
 
                 NVOLS=`fslnvols ${ANATDIR}/func_data.nii`
 
-                #FUNC
-                fslmaths ${ANATDIR}/func_data.nii -Tmean -thrp 30 ${ANATDIR}/mean_func_data.nii
-                gunzip -f ${ANATDIR}/mean_func_data.nii.gz
-                ${ABIN}/DenoiseImage -i ${ANATDIR}/mean_func_data.nii -r 3x3x3 -n Gaussian -o [ ${ANATDIR}/mean_func_data_nds.nii ]
-
-
                 #ANAT
-                #3dresample -prefix ${ANATDIR}/mean_func_data_nds_.nii -orient ras -input ${ANATDIR}/mean_func_data_nds.nii
-                #mv ${ANATDIR}/mean_func_data_nds_.nii ${ANATDIR}/mean_func_data_nds.nii
-                #3drefit -deoblique ${ANATDIR}/mean_func_data_nds.nii
-
-                #3dresample -prefix ${ANATDIR}/anat_orig.nii -orient ras -input ${ANATDIR}/anat.nii
-                #3drefit -deoblique -duporigin ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/anat_orig.nii
-
                 ${ABIN}/N4BiasFieldCorrection -i ${ANATDIR}/anat.nii -s 3  -o [ ${ANATDIR}/anat_b.nii ]
 
-                bet ${ANATDIR}/anat_b.nii ${ANATDIR}/anat_wb
-                gunzip -f ${ANATDIR}/anat_wb.nii.gz
+                # CAT12 segmentation calculates tissue maps (also for DARTEL)
+                matlab "-nodesktop -nosplash " <<<"cd './matlab'; cat12_segmentation_proc('${ANATDIR}'); exit;"
 
-                #3dAutomask -apply_prefix ${ANATDIR}/anat_wb.nii ${ANATDIR}/anat_b.nii
-                #3dUnifize -prefix ${ANATDIR}/anat_wb.nii  -input ${ANATDIR}/anat_b.nii
-                #3dSkullStrip -input ${ANATDIR}/anat_wb.nii -prefix ${ANATDIR}/anat_wbb.nii
+                # Based on GM+WM tissues, creates a brain mask.
+                3dcalc -a ${ANATDIR}/wm_tpm_anat.nii -b ${ANATDIR}/gm_tpm_anat.nii  -expr 'astep(a+b, 0.05)' -prefix ${ANATDIR}/brain_mask.nii
+                3dinfill -prefix ${ANATDIR}/brain_mask_fill.nii  -input ${ANATDIR}/brain_mask.nii -blend SOLID
+                mv ${ANATDIR}/brain_mask_fill.nii  ${ANATDIR}/brain_mask.nii
 
-                #${ABIN}/ImageMath 3 ${ANATDIR}/anat_wb.nii RescaleImage ${ANATDIR}/anat_b.nii 0 1
-                cp ${WDIR}/atlas/Prior/mni_icbm152_t1_brain_tal_nlin_sym_09c.nii ${ANATDIR}/template_t1.nii
-                cp ${WDIR}/atlas/Prior/mni_icbm152_t1_tal_nlin_sym_09c_mask.nii ${ANATDIR}/brain_mask_mni.nii
+                # Ensures everything is still oriented as they should.....
+                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/brain_mask.nii
+                mv ${ANATDIR}/tmp.nii ${ANATDIR}/brain_mask.nii
+
+                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/wm_tpm_anat.nii
+                mv ${ANATDIR}/tmp.nii ${ANATDIR}/wm_tpm_anat.nii
+
+                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/gm_tpm_anat.nii
+                mv ${ANATDIR}/tmp.nii ${ANATDIR}/gm_tpm_anat.nii
+
+                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/csf_tpm_anat.nii
+                mv ${ANATDIR}/tmp.nii ${ANATDIR}/csf_tpm_anat.nii
+
+                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/mri/rp1anat_affine.nii
+                mv ${ANATDIR}/tmp.nii ${ANATDIR}/mri/rc1anat_proc.nii
+
+                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/mri/rp2anat_affine.nii
+                mv ${ANATDIR}/tmp.nii ${ANATDIR}/mri/rc2anat_proc.nii
 
 
 
-                REF=${ANATDIR}/anat_wb.nii
-                SRC=${ANATDIR}/template_t1.nii
+                copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/brain_mask.nii
+                copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/wm_tpm_anat.nii
+                copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/gm_tpm_anat.nii
+                copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/csf_tpm_anat.nii
 
-                ${ABIN}/antsRegistration -d 3 -r [$REF,$SRC,1] -v 1 \
-                            -m MI[$REF,$SRC,1,32] -t translation[0.1] -c [500,5.e-7,20] \
-                            -s 3vox -f 3 -l 1 -n BSpline \
-                            -m MI[$REF,$SRC,1,32,Regular,0.25] -t rigid[0.1] -c [500,5.e-7,20] \
-                            -s 3vox -f 3 -l 1 -n BSpline \
-                            -m MI[$REF,$SRC,1,32,Regular,0.25] -t affine[0.1] -c [500x100x10,5.e-7,10] \
-                            -s 2x1x0vox -f 3x2x1 -l 1 -n BSpline \
-                            -m CC[$REF,$SRC,1,3] -t SyN[0.2,3] -c [20,1.e-7,10] \
-                            -s 4vox -f 3 -l 1 -n BSpline \
-                            -o [${ANATDIR}/mni2anat,${ANATDIR}/mni2anat.nii]
 
-                fslmaths ${ANATDIR}/mni2anat.nii -thr 10 -bin ${ANATDIR}/brain_mask.nii
 
-                rm -f ${ANATDIR}/mni2anat1InverseWarp.nii.gz
-                rm -f ${ANATDIR}/mni2anat1Warp.nii.gz
-#                matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/template_t1.nii', {'${ANATDIR}/brain_mask_mni.nii'}, ${NVOLS}, '${ANATDIR}/anat_wb.nii', [2 0 0], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5]); exit;"
+                ${ABIN}/DenoiseImage -v -i ${ANATDIR}/anat_b.nii -p 1x1x1 -r 4x4x4 -n Rician -x ${ANATDIR}/brain_mask.nii -o [ ${ANATDIR}/anat_wbn.nii ]
+                fi
 
-                #python ${WDIR}/extract_brain.py -i "${ANATDIR}/anat_wb.nii" -o "${ANATDIR}/brain_mask.nii"
-                #exit
-                ${ABIN}/DenoiseImage -i ${ANATDIR}/anat_b.nii -p 1x1x1 -r 4x4x4 -n Rician -x ${ANATDIR}/brain_mask.nii -o [ ${ANATDIR}/anat_wbn.nii ]
+
+                rm -f ${ANATDIR}/anat_proc_brain.nii
+                rm -f ${ANATDIR}/anat_proc.nii
+
                 3dcalc -a ${ANATDIR}/anat_wbn.nii -b ${ANATDIR}/brain_mask.nii -expr 'a*b' -prefix ${ANATDIR}/anat_proc_brain.nii
-
-
                 mv ${ANATDIR}/anat_wbn.nii ${ANATDIR}/anat_proc.nii
-                copy_header ${ANATDIR}/anat.nii ${ANATDIR}/anat_proc.nii
 
-                rm -f ${ANATDIR}/anat_w*.nii
                 rm -f ${ANATDIR}/anat.nii
-                rm -f ${ANATDIR}/template_t1.nii
+                rm -f ${ANATDIR}/anat_proc_s.nii
+                rm -f ${ANATDIR}/anat_proc_s2.nii
 
-                REF=${ANATDIR}/anat_proc.nii
+
+                # ALIGN anatomical to functional, but on the same space
+                REF=${ANATDIR}/anat_proc_brain.nii
                 SRC=${ANATDIR}/mean_func_data_nds.nii
 
+
                 ${ABIN}/antsRegistration -d 3 -r [$REF,$SRC,1] -v 1 \
-                            -m MI[$REF,$SRC,1,32] -t translation[0.1] -c [500,5.e-7,20] \
-                            -s 3vox -f 3 -l 1 -n BSpline \
+                            -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t translation[0.1] -c [500,1.e-8,20] \
+                            -s 6vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
+                            -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t rigid[0.1] -c [500,1.e-8,20] \
+                            -s 6vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
+                            -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t affine[0.1] -c [250,1.e-8,20] \
+                            -s 4vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
                             -o [${ANATDIR}/anat_proc_a,${ANATDIR}/anat_proc_a.nii]
 
+                # MIGHT not be needed
+                fslorient -copyqform2sform ${ANATDIR}/anat_proc_a.nii
+
+                # In some datasets, ANTs fail to get center and orientation correctly
+                # when applying the transformations
+                # The images generated here makes sure everything is in order
+                #SX=`3dinfo -adi ${ANATDIR}/anat_proc_brain.nii`
+                #SY=`3dinfo -adj ${ANATDIR}/anat_proc_brain.nii`
+                #SZ=`3dinfo -adk ${ANATDIR}/anat_proc_brain.nii`
+                INFO=`fslinfo ${ANATDIR}/mri/anat_proc_brain.nii`
+
+                SX=`sed -n 7p <<< "$INFO"`
+                SX=`echo $SX | awk -F ' ' '{print $2}'`
+
+                SY=`sed -n 8p <<< "$INFO"`
+                SY=`echo $SY | awk -F ' ' '{print $2}'`
+
+                SZ=`sed -n 9p <<< "$INFO"`
+                SZ=`echo $SZ | awk -F ' ' '{print $2}'`
+                3dresample -prefix ${ANATDIR}/mean_func_data_nds_hi.nii -input ${ANATDIR}/mean_func_data_nds.nii -dxyz ${SX} ${SY} ${SZ}
+
+                #For DARTEL images
+                #SX=`3dinfo -adi ${ANATDIR}/mri/rp1anat_affine.nii`
+                #SY=`3dinfo -adj ${ANATDIR}/mri/rp1anat_affine.nii`
+                #SZ=`3dinfo -adk ${ANATDIR}/mri/rp1anat_affine.nii`
+
+                INFO=`fslinfo ${ANATDIR}/mri/rp1anat_affine.nii`
+
+                SX=`sed -n 7p <<< "$INFO"`
+                SX=`echo $SX | awk -F ' ' '{print $2}'`
+
+                SY=`sed -n 8p <<< "$INFO"`
+                SY=`echo $SY | awk -F ' ' '{print $2}'`
+
+                SZ=`sed -n 9p <<< "$INFO"`
+                SZ=`echo $SZ | awk -F ' ' '{print $2}'`
+
+                3dresample -prefix ${ANATDIR}/mean_func_data_nds_dartel.nii -input ${ANATDIR}/mean_func_data_nds.nii -dxyz ${SX} ${SY} ${SZ}
+
+
                 ${ABIN}/antsApplyTransforms \
-                      -i ${ANATDIR}/anat_proc.nii \
+                      -i ${ANATDIR}/anat_proc_brain.nii \
                       --float \
-                      -r ${ANATDIR}/anat_proc.nii \
+                      -r ${ANATDIR}/mean_func_data_nds_hi.nii \
                       -o ${ANATDIR}/anat_proc_a2.nii \
                       -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                      -n NearestNeighbor
+                      -n BSpline
+
+
+                ${ABIN}/antsApplyTransforms \
+                      -i ${ANATDIR}/gm_tpm_anat.nii \
+                      --float \
+                      -r ${ANATDIR}/mean_func_data_nds_hi.nii \
+                      -o ${ANATDIR}/gm_tpm_anat_a.nii \
+                      -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                      -n BSpline
+
+
+                ${ABIN}/antsApplyTransforms \
+                      -i ${ANATDIR}/wm_tpm_anat.nii \
+                       --float \
+                       -r ${ANATDIR}/mean_func_data_nds_hi.nii \
+                       -o ${ANATDIR}/wm_tpm_anat_a.nii \
+                       -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                       -n BSpline
 
                  ${ABIN}/antsApplyTransforms \
-                       -i ${ANATDIR}/anat_proc_brain.nii \
+                       -i ${ANATDIR}/csf_tpm_anat.nii \
                        --float \
-                       -r ${ANATDIR}/anat_proc.nii \
+                       -r ${ANATDIR}/mean_func_data_nds_hi.nii \
+                       -o ${ANATDIR}/csf_tpm_anat_a.nii \
+                       -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                       -n BSpline
+
+
+                 ${ABIN}/antsApplyTransforms \
+                       -i ${ANATDIR}/anat_proc.nii \
+                       --float \
+                       -r ${ANATDIR}/mean_func_data_nds_hi.nii \
                        -o ${ANATDIR}/anat_proc_a3.nii \
                        -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                       -n NearestNeighbor
+                       -n BSpline
 
-                mv ${ANATDIR}/anat_proc_a2.nii ${ANATDIR}/anat_proc.nii
-                mv ${ANATDIR}/anat_proc_a3.nii ${ANATDIR}/anat_proc_brain.nii
+                  ${ABIN}/antsApplyTransforms \
+                        -i ${ANATDIR}/mri/rp1anat_affine.nii \
+                        --float \
+                        -r ${ANATDIR}/mean_func_data_nds_dartel.nii \
+                        -o ${ANATDIR}/mri/rp1anat_affine_a.nii \
+                        -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                        -n BSpline
+
+                  ${ABIN}/antsApplyTransforms \
+                        -i ${ANATDIR}/mri/rp2anat_affine.nii \
+                        --float \
+                        -r ${ANATDIR}/mean_func_data_nds_dartel.nii \
+                        -o ${ANATDIR}/mri/rp2anat_affine_a.nii \
+                        -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                        -n BSpline
+
+
+
+                rm -f ${ANATDIR}/anat_proc_s.nii
+
+                mv ${ANATDIR}/anat_proc_a2.nii ${ANATDIR}/anat_proc_brain.nii
+                mv ${ANATDIR}/anat_proc_a3.nii ${ANATDIR}/anat_proc.nii
+
+                mv ${ANATDIR}/csf_tpm_anat_a.nii ${ANATDIR}/csf_tpm_anat.nii
+                mv ${ANATDIR}/wm_tpm_anat_a.nii ${ANATDIR}/wm_tpm_anat.nii
+                mv ${ANATDIR}/gm_tpm_anat_a.nii ${ANATDIR}/gm_tpm_anat.nii
+
+                mv ${ANATDIR}/mri/rp1anat_affine_a.nii ${ANATDIR}/mri/rc1anat_proc.nii
+                mv ${ANATDIR}/mri/rp2anat_affine_a.nii ${ANATDIR}/mri/rc2anat_proc.nii
+
+                # Delete values < 0 from interpolation
+                TMPFILES=(anat_proc_brain anat_proc csf_tpm_anat \
+                    wm_tpm_anat gm_tpm_anat mri/rc1anat_proc \
+                    mri/rc2anat_proc )
+
+                for F in ${TMPFILE[@]};
+                do
+                    FNAME=${ANATDIR}/${F}.nii
+
+                    fslmaths ${FNAME} -thrP 5  ${ANATDIR}/tmp.nii
+                    gunzip -f ${ANATDIR}/tmp.nii.gz
+                    mv ${ANATDIR}/tmp.nii ${FNAME}
+                done
+
                 rm -f ${ANATDIR}/anat_proc_a.nii
 
 
-
-                #copy_header ${ANATDIR}/mean_func_data.nii ${ANATDIR}/mean_func_data_nds.nii
-
-                matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', '${OUTDIR}/proc_data_native.nii', ${NVOLS}, '${ANATDIR}/anat_proc_brain.nii', [1 0 0], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5]); exit;"
-
+                # Co-register functional to anatomical
+                matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${OUTDIR}/proc_data_native.nii'}, {${NVOLS}}, '${ANATDIR}/anat_proc_brain.nii', [1 0 0], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5]); exit;"
                 copy_header ${ANATDIR}/anat_proc_brain.nii ${ANATDIR}/anat_proc.nii
-
-                matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', '${OUTDIR}/proc_data_native.nii', ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 1 0], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5]); exit;"
-
-                #matlab "-nodesktop -nosplash " <<<"affine_spm2fsl('${ANATDIR}', '${ANATDIR}/anat_proc.nii','${ANATDIR}/mean_func_data_nds.nii'); exit;"
-
           fi
           rm -f ${ANATDIR}/anat_native.nii
 
-          mv ${ANATDIR}/rc1anat_proc.nii ${ANATDIR}/rc1anat_proc_dartel.nii
-          mv ${ANATDIR}/rc2anat_proc.nii ${ANATDIR}/rc2anat_proc_dartel.nii
-          mv ${ANATDIR}/rc3anat_proc.nii ${ANATDIR}/rc3anat_proc_dartel.nii
+          #cp ${ANATDIR}/mri/rc1anat_proc.nii ${ANATDIR}/rc1anat_proc_dartel.nii
+          #cp ${ANATDIR}/mri/rc2anat_proc.nii ${ANATDIR}/rc2anat_proc_dartel.nii
+          cp ${ANATDIR}/mri/rp1anat_affine.nii ${ANATDIR}/rc1anat_proc_dartel.nii
+          cp ${ANATDIR}/mri/rp1anat_affine.nii ${ANATDIR}/rc2anat_proc_dartel.nii
 
-          matlab "-nodesktop -nosplash " <<<"reslice_images('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/anat_proc.nii', '${ANATDIR}/anat_proc_brain.nii', '${ANATDIR}/c1anat_proc.nii', '${ANATDIR}/c2anat_proc.nii', '${ANATDIR}/c3anat_proc.nii'}); exit;"
-          #exit
+          matlab "-nodesktop -nosplash " <<<"cd ./matlab; reslice_images('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/anat_proc.nii', '${ANATDIR}/anat_proc_brain.nii', '${ANATDIR}/gm_tpm_anat.nii', '${ANATDIR}/wm_tpm_anat.nii', '${ANATDIR}/csf_tpm_anat.nii', '${ANATDIR}/brain_mask.nii'}); exit;"
 
           mv ${ANATDIR}/ranat_proc.nii ${ANATDIR}/anat_native.nii
           mv ${ANATDIR}/ranat_proc_brain.nii ${ANATDIR}/anat_native_brain.nii
 
-          mv ${ANATDIR}/rc1anat_proc.nii ${ANATDIR}/gm_tpm_native.nii
-          mv ${ANATDIR}/rc2anat_proc.nii ${ANATDIR}/wm_tpm_native.nii
-          mv ${ANATDIR}/rc3anat_proc.nii ${ANATDIR}/csf_tpm_native.nii
+          mv ${ANATDIR}/rgm_tpm_anat.nii ${ANATDIR}/gm_tpm_native.nii
+          mv ${ANATDIR}/rwm_tpm_anat.nii ${ANATDIR}/wm_tpm_native.nii
+          mv ${ANATDIR}/rcsf_tpm_anat.nii ${ANATDIR}/csf_tpm_native.nii
 
+          mv ${ANATDIR}/rbrain_mask.nii ${ANATDIR}/nat_mask_tpm.nii
 
           3dTcat -prefix ${OUTDIR}/example_func.nii ${OUTDIR}/proc_data_native.nii[0]
+          3dAutomask -prefix ${OUTDIR}/nat_mask_tpm.nii  ${ANATDIR}/mean_func_data_nds.nii
 
           copy_header ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/anat_native.nii
           copy_header ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/anat_native_brain.nii
           copy_header ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/gm_tpm_native.nii
           copy_header ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/wm_tpm_native.nii
           copy_header ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/csf_tpm_native.nii
+          copy_header ${ANATDIR}/mean_func_data_nds.nii ${OUTDIR}/nat_mask_tpm.nii
 
 
-
+          # Those steps below are only necessary for ICA and FIX stuff, otherwise
+          # there are some alignment problems
           flirt -in ${ANATDIR}/anat_native.nii -ref ${ANATDIR}/anat_proc.nii -omat ${ANATDIR}/func2anat_fsl.mat -out ${ANATDIR}/anat_native_fsl \
                -usesqform -dof 6 -coarsesearch 18 -finesearch 9 -searchrx -20 20 -searchry -20 20 -searchrz -20 20
 
@@ -1002,34 +1255,7 @@ if [ "$DO_ANAT" -eq "1" ]; then
           gzip ${ANATDIR}/anat_native_fsl_func.nii
           rm -f ${ANATDIR}/anat_native_fsl_func.nii
 
-          fslmaths ${ANATDIR}/wm_tpm_native.nii -add ${ANATDIR}/gm_tpm_native.nii -thr 0.1 -bin -fillh -nan ${OUTDIR}/nat_mask_tpm.nii
-          gunzip -f ${OUTDIR}/nat_mask_tpm.nii.gz
-      if [ "$DO_ANAT_FMAP" -eq "1"]; then
-
-            REF=${ANATDIR}/anat_native_brain.nii
-            SRC=${ANATDIR}/mean_func_data_nds.nii
-            ${ABIN}/antsRegistration -d 3 -r [$REF,$SRC,0] -v 1 \
-                        -m CC[$REF,$SRC,1,3] -t SyN[0.05,1] -c [20x10,1.e-7,10] \
-                        -s 6x4vox -f 4x2 -l 1 -n BSpline  -g 0x1x0 \
-                        -o [${ANATDIR}/fmap,${ANATDIR}/u_mean_func_data_nds.nii]
-
-            copy_header ${ANATDIR}/mean_func_data_nds.nii  ${ANATDIR}/u_mean_func_data_nds.nii
-            NVOLS=`fslnvols ${OUTDIR}/proc_data_native.nii`
-            mkdir ${ANATDIR}/tmp
-            3dTsplit4D -prefix ${ANATDIR}/tmp/func_data.nii -keep_datum ${OUTDIR}/proc_data_native.nii
-
-            parallel -j4 --line-buffer correct_anat_fmap ::: $(seq 0 ${NVOLS}) ::: ${ANATDIR} ::: ${ABIN} ::: fmap
-
-            rm -f ${ANATDIR}/proc_data_native_u.nii
-            3dTcat -prefix ${OUTDIR}/proc_data_native_u.nii -tr ${TR} ${ANATDIR}/tmp/func_data_n*.nii
-
-            copy_header ${OUTDIR}/proc_data_native.nii  ${OUTDIR}/proc_data_native_u.nii
-
-            rm -f -r ${ANATDIR}/tmp
-
-      fi
-      if [ "$DO_CLEAN" -eq "1" ]; then
-
+      if [ "$CLEAN_INTERMEDIATE" -eq "1" ]; then
             rm -f ${ANATDIR}/c1anat_proc.nii
             rm -f ${ANATDIR}/c2anat_proc.nii
             rm -f ${ANATDIR}/c3anat_proc.nii
@@ -1041,21 +1267,18 @@ if [ "$DO_ANAT" -eq "1" ]; then
             rm -f ${ANATDIR}/anat_b.nii
             rm -f ${ANATDIR}/func_data.nii
             rm -f ${ANATDIR}/func_data.mat
-            rm -f ${ANATDIR}/anat_wb.nii
+            rm -f ${ANATDIR}/anat_w*.nii
             rm -f ${ANATDIR}/brain_mask.nii
             gzip -f ${ANATDIR}/iy_anat_proc.nii
             gzip -f ${ANATDIR}/y_anat_proc.nii
 
       fi
-    } &> ${LOGDIR}/T1_Processing.log
+    } &> ${LOGDIR}/03_T1_Processing.log
 
       END=$(date -u +%s.%N)
       DIFF=`echo "( $END - $START )" | bc`
       printf "DONE [%.1f s]\n" $DIFF
 fi
-
-
-
 
 
 
@@ -1098,17 +1321,10 @@ if [ "$DO_ICA" -eq "1" ]; then
             # For ICA-FIX, smoothing is not recommended [only during visualization]
             rm -f ${OUTDIR}/tmp_melodic.nii
             rm -f ${OUTDIR}/nat_mask.nii
-            #if test -f ${OUTDIR}/phyca_data__NN_map.nii; then
-            #  #cp ${OUTDIR}/phyca_data__NN_map.nii ${OUTDIR}/nat_mask_dil.nii
-            #  #3dcalc -a ${OUTDIR}/proc_data_native.nii -expr "astep(a,0)" -prefix ${OUTDIR}/nat_mask_dil.nii
-            #  fslmaths ${OUTDIR}/proc_data_native.nii -Tmean -bin ${OUTDIR}/nat_mask_dil.nii
-            #  gunzip -f ${OUTDIR}/nat_mask_dil.nii.gz
-            #else
-            #3dAutomask -prefix ${OUTDIR}/nat_mask.nii -peel 2  ${OUTDIR}/proc_data_native.nii
-            #fi
-
 
             copy_header ${ANATDIR}/mean_func_data_nds.nii ${OUTDIR}/nat_mask_tpm.nii
+
+
             # -stopband 0 0.009
             3dTproject -prefix ${OUTDIR}/tmp_melodic.nii -polort 2  -mask ${OUTDIR}/nat_mask_tpm.nii -TR ${TR} -input ${OUTDIR}/proc_data_native.nii
 
@@ -1116,10 +1332,9 @@ if [ "$DO_ICA" -eq "1" ]; then
             rm -f -R ${OUTDIR}/FIX
 
             copy_header ${OUTDIR}/proc_data_native.nii ${OUTDIR}/tmp_melodic.nii
-            #-vnorm
             3dpc -eigonly -nscale -vmean -vnorm -mask ${OUTDIR}/nat_mask_tpm.nii -prefix ${OUTDIR}/pc_var ${OUTDIR}/tmp_melodic.nii
 
-            NIC=`python ${WDIR}/util/ica_model_order.py -outfile ${OUTDIR}/num_ics.txt -eig_file ${OUTDIR}/pc_var_eig.1D`
+            NIC=`python ${UTILDIR}/ica_model_order.py -outfile ${OUTDIR}/num_ics.txt -eig_file ${OUTDIR}/pc_var_eig.1D`
 
             #NIC=`tail -n 1 ${OUTDIR}/num_ics.txt`
 
@@ -1162,7 +1377,7 @@ if [ "$DO_ICA" -eq "1" ]; then
                       --mix=${OUTDIR}/melodic.ic/grot.txt -o ${OUTDIR}/melodic.ic --Oall --report -v --mmthresh=0.5
 
                   # usage: extract_ics.py [-h] -o OUTDIR -i INFILE -icmap ICMAP
-                  python ${WDIR}/util/extract_ics.py -i ${OUTDIR}/proc_data_native.nii  \
+                  python ${UTILDIR}/extract_ics.py -i ${OUTDIR}/proc_data_native.nii  \
                           -icmap ${OUTDIR}/melodic.ic/CanICA_Comps.nii -nic ${NIC} -out ${OUTDIR}/melodic.ic/  #-decomp dictlearning
 
             fi
@@ -1182,8 +1397,12 @@ if [ "$DO_ICA" -eq "1" ]; then
 
             mkdir ${OUTDIR}/tmp
             #cp -f ${FIXDIR}/hand_labels_noise.txt ${OUTDIR}/hand_labels_noise.txt
+
             cp -f -r ${FIXDIR}/filtered_func_data.ica/* ${OUTDIR}/tmp
             rm -f -r ${FIXDIR}
+            rm -f -r ${FIXDIR}/reg
+            rm -f -r ${FIXDIR}/mc
+
             mkdir ${FIXDIR}
             mkdir ${FIXDIR}/mc
             mkdir ${FIXDIR}/reg
@@ -1192,13 +1411,16 @@ if [ "$DO_ICA" -eq "1" ]; then
             cp -f -r ${OUTDIR}/tmp/* ${FIXDIR}/filtered_func_data.ica
             rm -f -r ${OUTDIR}/tmp
 
-            cp -f ${ANATDIR}/anat_proc_brain.nii ${FIXDIR}/reg/highres.nii
-            gzip -f ${FIXDIR}/reg/highres.nii
+            #cp -f ${ANATDIR}/anat_proc_brain.nii ${FIXDIR}/reg/highres.nii
+            fslmaths ${ANATDIR}/anat_proc_brain.nii -thrP 0.1 ${FIXDIR}/reg/highres.nii
+            #gzip -f ${FIXDIR}/reg/highres.nii
 
             cp -f ${OUTDIR}/proc_data_native.nii ${FIXDIR}/filtered_func_data.nii
             gzip -f ${FIXDIR}/filtered_func_data.nii
+
             cp -f ${OUTDIR}/motion_estimate_fsl.par ${FIXDIR}/mc/prefiltered_func_data_mcf.par
             cp -f -R ${OUTDIR}/melodic.ic/* ${FIXDIR}/filtered_func_data.ica
+
             cp ${OUTDIR}/nat_mask_tpm.nii ${FIXDIR}/mask.nii
             gzip -f ${FIXDIR}/mask.nii
 
@@ -1237,6 +1459,8 @@ if [ "$DO_ICA" -eq "1" ]; then
             gzip -f ${FIXDIR}/filtered_func_data.nii
             gzip -f ${FIXDIR}/mask.nii
             rm -r -f  ${OUTDIR}/melodic.ic
+
+
       } &> ${LOGDIR}/ICA.log
 
       END=$(date -u +%s.%N)
@@ -1247,39 +1471,19 @@ fi
 
 # Apply normalisation WARP
 # TODO --> Change Name to something more meaningful
-if [ "$DO_MNI" -eq "1" ]; then
+if [ "$DO_ATLAS_TO_NATIVE" -eq "1" ]; then
 
       printf "[$SUB] Converting Atlas to Native Space ... "
       START=$(date -u +%s.%N)
 
       {
-            WDIR=$(awk -F\=  '/^WDIR/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+            # Not sure why the WDIR is being lost
+            WDIR=${WDIR_ORIG}
             cd "${WDIR}"
-
-            rm -f ${ANATDIR}/c6anat_proc.nii
-
 
             rm -f ${ANATDIR}/lg400_cobra_group.nii
             rm -f ${ANATDIR}/yeo17cobra_group.nii
             rm -f ${ANATDIR}/template_group.nii
-
-#NII=(cingulo_opercular default_mode dorsal_attention dorsal_somatomotor \
-#      ventral_attention early_auditory language lateral_prefrontal \
-#      left_frontoparietal medial_prefrontal right_frontoparietal \
-#      ventral_somatomotor visual_parafoveal visual_peripheral)
-#
-#BASE=/home/luna.kuleuven.be/u0101486/workspace/data/ConnectEx/Template/
-#3dTcat -prefix ${BASE}/mantini2013.nii ${BASE}/${NII[0]}_group.nii ${BASE}/${NII[1]}_group.nii \
-#      ${BASE}/${NII[2]}_group.nii ${BASE}/${NII[3]}_group.nii ${BASE}/${NII[4]}_group.nii \
-#      ${BASE}/${NII[5]}_group.nii ${BASE}/${NII[6]}_group.nii ${BASE}/${NII[7]}_group.nii \
-#      ${BASE}/${NII[8]}_group.nii ${BASE}/${NII[9]}_group.nii ${BASE}/${NII[10]}_group.nii \
-#      ${BASE}/${NII[11]}_group.nii ${BASE}/${NII[12]}_group.nii ${BASE}/${NII[13]}_group.nii
-#
-#exit
-#NII_IN=(    \
-#         \
-#        )
-
 
             # TODO Create a 4D map for the Mantini Maps
             cp ${GROUPDIR}/lg400_cobra_group.nii ${ANATDIR}/lg400_cobra_group.nii
@@ -1287,27 +1491,30 @@ if [ "$DO_MNI" -eq "1" ]; then
 
             cp ${GROUPDIR}/Group_T1_Avg_Brain.nii ${ANATDIR}/template_group.nii
 
+            # Test if the Mantini et al. 2013 network definition will be used
             if test -f ${GROUPDIR}/cingulo_opercular_group.nii; then
-              cp ${GROUPDIR}/cingulo_opercular_group.nii ${ANATDIR}/cingulo_opercular_group.nii
-              cp ${GROUPDIR}/default_mode_group.nii ${ANATDIR}/default_mode_group.nii
-              cp ${GROUPDIR}/dorsal_attention_group.nii ${ANATDIR}/dorsal_attention_group.nii
-              cp ${GROUPDIR}/dorsal_somatomotor_group.nii ${ANATDIR}/dorsal_somatomotor_group.nii
-              cp ${GROUPDIR}/ventral_attention_group.nii ${ANATDIR}/ventral_attention_group.nii
-              cp ${GROUPDIR}/early_auditory_group.nii ${ANATDIR}/early_auditory_group.nii
-              cp ${GROUPDIR}/language_group.nii ${ANATDIR}/language_group.nii
-              cp ${GROUPDIR}/lateral_prefrontal_group.nii ${ANATDIR}/lateral_prefrontal_group.nii
-              cp ${GROUPDIR}/left_frontoparietal_group.nii ${ANATDIR}/left_frontoparietal_group.nii
-              cp ${GROUPDIR}/medial_prefrontal_group.nii ${ANATDIR}/medial_prefrontal_group.nii
-              cp ${GROUPDIR}/right_frontoparietal_group.nii ${ANATDIR}/right_frontoparietal_group.nii
-              cp ${GROUPDIR}/ventral_somatomotor_group.nii ${ANATDIR}/ventral_somatomotor_group.nii
-              cp ${GROUPDIR}/visual_parafoveal_group.nii ${ANATDIR}/visual_parafoveal_group.nii
-              cp ${GROUPDIR}/visual_peripheral_group.nii ${ANATDIR}/visual_peripheral_group.nii
+                cp ${GROUPDIR}/cingulo_opercular_group.nii ${ANATDIR}/cingulo_opercular_group.nii
+                cp ${GROUPDIR}/default_mode_group.nii ${ANATDIR}/default_mode_group.nii
+                cp ${GROUPDIR}/dorsal_attention_group.nii ${ANATDIR}/dorsal_attention_group.nii
+                cp ${GROUPDIR}/dorsal_somatomotor_group.nii ${ANATDIR}/dorsal_somatomotor_group.nii
+                cp ${GROUPDIR}/ventral_attention_group.nii ${ANATDIR}/ventral_attention_group.nii
+                cp ${GROUPDIR}/early_auditory_group.nii ${ANATDIR}/early_auditory_group.nii
+                cp ${GROUPDIR}/language_group.nii ${ANATDIR}/language_group.nii
+                cp ${GROUPDIR}/lateral_prefrontal_group.nii ${ANATDIR}/lateral_prefrontal_group.nii
+                cp ${GROUPDIR}/left_frontoparietal_group.nii ${ANATDIR}/left_frontoparietal_group.nii
+                cp ${GROUPDIR}/medial_prefrontal_group.nii ${ANATDIR}/medial_prefrontal_group.nii
+                cp ${GROUPDIR}/right_frontoparietal_group.nii ${ANATDIR}/right_frontoparietal_group.nii
+                cp ${GROUPDIR}/ventral_somatomotor_group.nii ${ANATDIR}/ventral_somatomotor_group.nii
+                cp ${GROUPDIR}/visual_parafoveal_group.nii ${ANATDIR}/visual_parafoveal_group.nii
+                cp ${GROUPDIR}/visual_peripheral_group.nii ${ANATDIR}/visual_peripheral_group.nii
             fi
 
             if ! test -f ${ANATDIR}/u_mean_func_data_nds.nii; then
               cp ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/u_mean_func_data_nds.nii
             fi
 
+            #cp -f ${ANATDIR}/mri/rc1anat_proc.nii ${ANATDIR}/rc1anat_proc_dartel.nii
+            #cp -f ${ANATDIR}/mri/rc2anat_proc.nii ${ANATDIR}/rc2anat_proc_dartel.nii
             if test -f ${GROUPDIR}/cingulo_opercular_group.nii; then
               MANTININETS="'${ANATDIR}/cingulo_opercular_group.nii',"
               MANTININETS=${MANTININETS}"'${ANATDIR}/default_mode_group.nii',"
@@ -1323,15 +1530,18 @@ if [ "$DO_MNI" -eq "1" ]; then
               MANTININETS=${MANTININETS}"'${ANATDIR}/ventral_somatomotor_group.nii',"
               MANTININETS=${MANTININETS}"'${ANATDIR}/visual_parafoveal_group.nii',"
               MANTININETS=${MANTININETS}"'${ANATDIR}/visual_peripheral_group.nii'"
-              matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/u_mean_func_data_nds.nii', {'${ANATDIR}/lg400_cobra_group.nii', '${ANATDIR}/yeo17cobra_group.nii', ${MANTININETS}}, 1, '${ANATDIR}/anat_proc.nii', [0 0 2], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0], 0); exit;"
+              matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/u_mean_func_data_nds.nii', {'${ANATDIR}/lg400_cobra_group.nii', '${ANATDIR}/yeo17cobra_group.nii', ${MANTININETS}}, 1, '${ANATDIR}/anat_proc.nii', [0 0 2], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0], 0); exit;"
             else
-              matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/u_mean_func_data_nds.nii', {'${ANATDIR}/lg400_cobra_group.nii', '${ANATDIR}/yeo17cobra_group.nii'}, 1, '${ANATDIR}/anat_proc.nii', [0 0 2], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0], 0); exit;"
+
+              matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/u_mean_func_data_nds.nii', {'${ANATDIR}/lg400_cobra_group.nii', '${ANATDIR}/yeo17cobra_group.nii'}, 1, '${ANATDIR}/anat_proc.nii', [0 0 2], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0], 0); exit;"
             fi
             #matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/u_mean_func_data_nds.nii', {'${ANATDIR}/mantini2013_group.nii'}, 14, '${ANATDIR}/anat_proc.nii', [0 0 2], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0], 0); exit;"
 
 
-            matlab "-nodesktop -nosplash " <<<"coreg_same_image('${ANATDIR}/u_mean_func_data_nds.nii', '${ANATDIR}/wlg400_cobra_group_u_rc1anat_proc_dartel.nii', '', 0); exit;"
-            matlab "-nodesktop -nosplash " <<<"coreg_same_image('${ANATDIR}/u_mean_func_data_nds.nii', '${ANATDIR}/wyeo17cobra_group_u_rc1anat_proc_dartel.nii', '', 0); exit;"
+
+
+            matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_same_image('${ANATDIR}/u_mean_func_data_nds.nii', '${ANATDIR}/wlg400_cobra_group_u_rc1anat_proc_dartel.nii', '', 0); exit;"
+            matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_same_image('${ANATDIR}/u_mean_func_data_nds.nii', '${ANATDIR}/wyeo17cobra_group_u_rc1anat_proc_dartel.nii', '', 0); exit;"
 
             if test -f ${GROUPDIR}/cingulo_opercular_group.nii; then
 
@@ -1343,7 +1553,7 @@ if [ "$DO_MNI" -eq "1" ]; then
               for NII in "${NII_IN[@]}";
               do
               #  cp ${WDIR}/atlas/Mantini2013/RSNs_fMRI/${NII}.nii ${GROUPDIR}/${NII}_mni.nii
-                 matlab "-nodesktop -nosplash " <<<"coreg_same_image('${ANATDIR}/u_mean_func_data_nds.nii', '${ANATDIR}/w${NII}_group_u_rc1anat_proc_dartel.nii', '', 0); exit;"
+                 matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_same_image('${ANATDIR}/u_mean_func_data_nds.nii', '${ANATDIR}/w${NII}_group_u_rc1anat_proc_dartel.nii', '', 0); exit;"
                  copy_header ${ANATDIR}/mean_func_data_nds.nii  ${ANATDIR}/rw${NII}_group_u_rc1anat_proc_dartel.nii
                  mv ${ANATDIR}/rw${NII}_group_u_rc1anat_proc_dartel.nii ${ANATDIR}/${NII}_native.nii
               done
@@ -1430,7 +1640,7 @@ if  [ "${EXTRACT_NUIS}" -eq "1" ]; then
       3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/proc_data_native.nii
       fslmeants -i ${OUTDIR}/proc_data_native${SUFFIX}.nii -m ${ANATDIR}/nat_mask.nii -o ${OUTDIR}/global_sig.txt
 
-      python run_acompcor.py -d ${OUTDIR} -i ${OUTDIR}/proc_data_native${SUFFIX}.nii -n ${ANATDIR}/nongm_mask_native.nii -b ${OUTDIR}/nat_mask.nii -t ${TR}
+      python ${UTILDIR}/run_acompcor.py -d ${OUTDIR} -i ${OUTDIR}/proc_data_native${SUFFIX}.nii -n ${ANATDIR}/nongm_mask_native.nii -b ${OUTDIR}/nat_mask.nii -t ${TR}
 
       # Remove headers from compcor results
       sed '1d' ${OUTDIR}/acompcor.txt > ${OUTDIR}/tmp_acompcor.txt
@@ -1439,7 +1649,7 @@ if  [ "${EXTRACT_NUIS}" -eq "1" ]; then
       sed '1d' ${OUTDIR}/tcompcor.txt > ${OUTDIR}/tmp_tcompcor.txt
       mv ${OUTDIR}/tmp_tcompcor.txt ${OUTDIR}/tcompcor.txt
 
-      python rp_nuis_calc.py -d ${OUTDIR} -r motion_estimate.par -t ${FD_THR}
+      python ${UTILDIR}/rp_nuis_calc.py -d ${OUTDIR} -r motion_estimate.par -t ${FD_THR}
 
     } &> ${LOGDIR}/NuisanceSignal_Calc.log
 
@@ -1459,7 +1669,7 @@ fi
 
 # Use a trained classifier to reduce noise on functional images
 # Obviously, this needs a previously trained classifier (and processed func data)
-if [ "$APPLY_FIX" -eq "1" ]; then
+if [ "$ESTIMATE_FIX" -eq "1" ]; then
         printf "[$SUB] Applying FIX Classifier ... "
         START=$(date -u +%s.%N)
         {
@@ -1491,12 +1701,14 @@ if [ "$APPLY_FIX" -eq "1" ]; then
         #mv ${OUTDIR}/*.png ${IMGDIR}
         #mv ${OUTDIR}/*.gif ${IMGDIR}
         ## Physiological noise estimation using PHYCAA+ [TODO REF]
-        #if [ "${DO_PEST}" -eq "2" ]; then
+        #if [ "${ESTIMATE_PHYSIO}" -eq "2" ]; then
         #      matlab  "-nodesktop -nosplash " <<<"apply_phycaa_rsn(${TR}, '${OUTDIR}', 'proc_data_native_fix', '${OUTDIR}/nat_mask.nii', '${OUTDIR}/csf_mask_nat.nii' ); exit;"
         #fi
         # Write out the IC time course
 
-        python ${WDIR}/util/save_ics.py -out ${OUTDIR} -class ${FIXDIR}/fix4melview_${FIX_CL_LABEL}_thr${FIX_THR}.txt
+        python ${UTILDIR}/save_ics.py -out ${OUTDIR} -class ${FIXDIR}/fix4melview_${FIX_CL_LABEL}_thr${FIX_THR}.txt
+        mv ${OUTDIR}/*.png ${IMGDIR}
+        mv ${OUTDIR}/*.gif ${IMGDIR}
 
       }  &> ${LOGDIR}/FIX_NuisanceCalc.log
       END=$(date -u +%s.%N)
@@ -1505,8 +1717,8 @@ if [ "$APPLY_FIX" -eq "1" ]; then
 fi
 
 
-# APPLY_DICER = 1 --> Apply DiCER to native func images
-if [ "$APPLY_DICER" -eq "1" ]; then
+# ESTIMATE_DICER = 1 --> Apply DiCER to native func images
+if [ "$ESTIMATE_DICER" -eq "1" ]; then
         printf "[$SUB] DiCER ... "
         START=$(date -u +%s.%N)
         {
@@ -1514,7 +1726,7 @@ if [ "$APPLY_DICER" -eq "1" ]; then
         # See how to best do this
         # In the VM, 2mm^3 voxel seems to be too much in terms of memory requirements...
         # Write a regressor for selected ICs, might not be needed
-        python rp_nuis_calc.py -d ${OUTDIR} -r motion_estimate.par -t ${FD_THR}
+        python ${UTILDIR}/rp_nuis_calc.py -d ${OUTDIR} -r motion_estimate.par -t ${FD_THR}
 
         rm -f -r ${OUTDIR}/dicer
         rm -f -r ${OUTDIR}/dicer_fix
@@ -1569,8 +1781,8 @@ if [ "$APPLY_DICER" -eq "1" ]; then
         gzip -f ${OUTDIR}/tmp.nii
         rm -f ${OUTDIR}/tmp.nii
 
-        #cp ${OUTDIR}/non_noise_ics.txt ${OUTDIR}/confounders.txt
-        #cp ${OUTDIR}/non_noise_ics.txt ${OUTDIR}/dicer_fix/confounders.txt
+        cp ${OUTDIR}/non_noise_ics.txt ${OUTDIR}/confounders.txt
+        cp ${OUTDIR}/non_noise_ics.txt ${OUTDIR}/dicer_fix/confounders.txt
 
         if test -f ${OUTDIR}/dicer_fix/confounders.txt; then
           source DiCER_lightweight.sh -i ${OUTDIR}/tmp.nii.gz -a ${ANATDIR}/anat_native_tmp.nii -w ${OUTDIR}/dicer_fix -s SUBJECT_1_FIX  -p 0 -d -c confounders.txt
@@ -1578,19 +1790,24 @@ if [ "$APPLY_DICER" -eq "1" ]; then
           source DiCER_lightweight.sh -i ${OUTDIR}/tmp.nii.gz -a ${ANATDIR}/anat_native_tmp.nii -w ${OUTDIR}/dicer_fix -s SUBJECT_1_FIX  -p 0 -d
         fi
 
-#        gunzip -f /home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/tmp/N1_02/dicer_fix/tmp_detrended_hpf.nii.gz
-#        gunzip -f /home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/tmp/N1_02/dicer_fix/tmp_detrended_hpf_dbscan.nii.gz
+        gunzip -f ${OUTDIR}/dicer_fix/tmp_detrended_hpf.nii.gz
+        gunzip -f ${OUTDIR}/dicer_fix/tmp_detrended_hpf_dbscan.nii.gz
 #
-#        python ${QCDIR}/save_image_diff.py -o ${OUTDIR}/dicer_fix -i ${OUTDIR}/dicer_fix -a tmp_detrended_hpf.nii \
-#         -b  tmp_detrended_hpf_dbscan.nii \
-#         -type std -msg1 'Before DiCER' -msg2 'After DiCER'
+        python ${QCDIR}/save_image_diff.py -o ${OUTDIR}/dicer_fix -i ${OUTDIR}/dicer_fix -a tmp_detrended_hpf.nii \
+         -b  tmp_detrended_hpf_dbscan.nii \
+         -type std -msg1 'Before DiCER' -msg2 'After DiCER'
 
+        mv ${OUTDIR}/dicer_fix/*.png ${IMGDIR}
+        mv ${OUTDIR}/dicer_fix/*.gif ${IMGDIR}
 
         cd ${CURDIR}
         rm ${ANATDIR}/anat_native_tmp.nii
 
 
         cp -f ${OUTDIR}/dicer_fix/SUBJECT_1_FIX_dbscan_liberal_regressors.tsv ${OUTDIR}/DiCER_regressors.txt
+        cut -f 1-3 ${OUTDIR}/dicer_fix/SUBJECT_1_FIX_dbscan_liberal_regressors.tsv > ${OUTDIR}/DiCER_regressors_1_3.txt
+        cut -f 1 ${OUTDIR}/dicer_fix/SUBJECT_1_FIX_dbscan_liberal_regressors.tsv > ${OUTDIR}/DiCER_regressors_1.txt
+
 
         rm -f -r ${OUTDIR}/dicer_fix
         rm -f ${OUTDIR}/tmp.nii.gz
@@ -1598,8 +1815,7 @@ if [ "$APPLY_DICER" -eq "1" ]; then
         rm -f ${OUTDIR}/proc_data_native_fix_d.nii
 
         #python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a proc_data_native_fix.nii -b  proc_data_native_fix_d.nii -type std -msg1 'Before DiCER' -msg2 'After DiCER'
-        #mv ${OUTDIR}/*.png ${IMGDIR}
-        #mv ${OUTDIR}/*.gif ${IMGDIR}
+
 
       }  &> ${LOGDIR}/DiCER.log
       END=$(date -u +%s.%N)
@@ -1664,7 +1880,7 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
           WDIR=$(awk -F\=  '/^WDIR/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
 
 
-          python ${WDIR}/rp_nuis_calc.py -d ${OUTDIR} -r motion_estimate.par -t 0.3
+          #python ${WDIR}/rp_nuis_calc.py -d ${OUTDIR} -r motion_estimate.par -t 0.3
 
           model_qa()
           {
@@ -1762,10 +1978,10 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
                   copy_header ${OUTDIR}/${INPREF} ${ANATDIR}/nongm_mask_native_${REG_MODEL}.nii
 
                   if [[ ${REG_MODEL} == *"CC"* ]]; then
-                        python ${WDIR}/run_acompcor.py -d ${OUTDIR} -i ${OUTDIR}/${INPREF}.nii -n ${ANATDIR}/nongm_mask_native_${REG_MODEL}.nii -b ${OUTDIR}/nat_mask.nii -t ${TR} \
+                        python ${UTILDIR}/run_acompcor.py -d ${OUTDIR} -i ${OUTDIR}/${INPREF}.nii -n ${ANATDIR}/nongm_mask_native_${REG_MODEL}.nii -b ${OUTDIR}/nat_mask.nii -t ${TR} \
                                       -var 0.25 -aout acompcor_${REG_MODEL} -tout tcompcor_${REG_MODEL}
                   else
-                        python ${WDIR}/run_acompcor.py -d ${OUTDIR} -i ${OUTDIR}/${INPREF}.nii -n ${ANATDIR}/nongm_mask_native_${REG_MODEL}.nii -b ${OUTDIR}/nat_mask.nii -t ${TR} \
+                        python ${UTILDIR}/run_acompcor.py -d ${OUTDIR} -i ${OUTDIR}/${INPREF}.nii -n ${ANATDIR}/nongm_mask_native_${REG_MODEL}.nii -b ${OUTDIR}/nat_mask.nii -t ${TR} \
                                       -var 0.5 -aout acompcor_${REG_MODEL} -tout tcompcor_${REG_MODEL}
 
                   fi
@@ -1815,13 +2031,17 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
                   append_col ${OUTDIR}/DiCER_regressors.txt  ${OUTDIR}/regressors_${REG_MODEL}.txt ${OUTDIR}
               fi
 
+              if [[ ${REG_MODEL} == *"D3C"* ]]; then
+                  append_col ${OUTDIR}/DiCER_regressors_1_3.txt  ${OUTDIR}/regressors_${REG_MODEL}.txt ${OUTDIR}
+              fi
+
               if [[ ${REG_MODEL} == *"FAC"* ]]; then
                   append_col ${OUTDIR}/noise_ics.txt  ${OUTDIR}/regressors_${REG_MODEL}.txt ${OUTDIR}
               fi
 
               if [[ ${REG_MODEL} == *"FAD"* ]]; then
 
-                python ${WDIR}/util/orthogonalize_regressors.py \
+                python ${UTILDIR}/orthogonalize_regressors.py \
                         -regressors ${OUTDIR}/noise_ics.txt \
                         -signal ${OUTDIR}/non_noise_ics.txt \
                         -out ${OUTDIR}/noise_ics_${REG_MODEL}.txt
@@ -1838,7 +2058,9 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
                   append_col ${OUTDIR}/physio.txt  ${OUTDIR}/regressors_${REG_MODEL}.txt ${OUTDIR}
               fi
 
-              3dcalc -a ${ANATDIR}/gm_tpm_native.nii  -expr 'astep(a, 0.3)' -prefix ${ANATDIR}/gm_mask_native_${REG_MODEL}.nii
+              3dcalc -a ${ANATDIR}/gm_tpm_native.nii -b ${ANATDIR}/wm_tpm_native.nii -c ${ANATDIR}/csf_tpm_native.nii \
+               -expr 'astep(a+b+c, 0.5)' -prefix ${ANATDIR}/gm_mask_native_${REG_MODEL}.nii
+
               copy_header ${OUTDIR}/${INPREF} ${ANATDIR}/gm_mask_native_${REG_MODEL}.nii
 
 
@@ -1848,7 +2070,7 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
               #    CMD="3dTproject -input ${OUTDIR}/${INPREF}_${REG_MODEL}.nii -TR ${TR} -norm "
               #fi
 
-              CMD="${CMD} -polort 2 "
+              CMD="${CMD} -polort 1 "
 
               if [ "$DELMOD" -eq "1" ]; then
                   CMD="${CMD} -mask ${ANATDIR}/gm_mask_native_${REG_MODEL}.nii "
@@ -1861,17 +2083,18 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
 
 
               if [[ ${REG_MODEL} == *"CEN"* ]]; then
-                  CMD="${CMD} -cenmode KILL -censor ${OUTDIR}/temporal_mask_fd.txt "
+                  python ${UTILDIR}/rp_nuis_calc.py -d ${OUTDIR} -r motion_estimate.par -t ${FD_THR}
+                  CMD="${CMD} -cenmode NTRP -censor ${OUTDIR}/temporal_mask_fd.txt "
               fi
 
               if [[ ${REG_MODEL} == *"PCA"* ]]; then
                  #3dpc -prefix ${OUTDIR}/regressors_${REG_MODEL}_PCA -eigonly -pcsave ALL -dmean -nscale ${OUTDIR}/regressors_${REG_MODEL}.txt
                  if [[ ${REG_MODEL} == *"PCA80"* ]]; then
-                   python ${WDIR}/util/nusiance_pca.py -outfile ${OUTDIR}/regressors_${REG_MODEL}_PCA.txt -varexp 80 -nuis_file ${OUTDIR}/regressors_${REG_MODEL}.txt
+                   python ${UTILDIR}/nuisance_pca.py -outfile ${OUTDIR}/regressors_${REG_MODEL}_PCA.txt -varexp 80 -nuis_file ${OUTDIR}/regressors_${REG_MODEL}.txt
                  fi
 
                  if [[ ${REG_MODEL} == *"PCA95"* ]]; then
-                   python ${WDIR}/util/nusiance_pca.py -outfile ${OUTDIR}/regressors_${REG_MODEL}_PCA.txt -varexp 95 -nuis_file ${OUTDIR}/regressors_${REG_MODEL}.txt
+                   python ${UTILDIR}/nuisance_pca.py -outfile ${OUTDIR}/regressors_${REG_MODEL}_PCA.txt -varexp 95 -nuis_file ${OUTDIR}/regressors_${REG_MODEL}.txt
                  fi
 
                  #rm -f ${OUTDIR}/regressors_${REG_MODEL}_PCA_eig.1D
@@ -1900,11 +2123,11 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
               rm -f ${OUTDIR}/acompcor_${REG_MODEL}.txt
               rm -f ${OUTDIR}/tcompcor_${REG_MODEL}_meta.txt
               rm -f ${OUTDIR}/acompcor_${REG_MODEL}_meta.txt
-              3dDespike -nomask -NEW -localedit -cut 1.96 2.96 \
-                    -prefix  ${OUTDIR}/${INPREF}_${REG_MODEL}_tmp.nii \
-                            ${OUTDIR}/${INPREF}_${REG_MODEL}.nii
+              #3dDespike -nomask -NEW -localedit -cut 1.96 2.96 \
+              #      -prefix  ${OUTDIR}/${INPREF}_${REG_MODEL}_tmp.nii \
+              #              ${OUTDIR}/${INPREF}_${REG_MODEL}.nii
 
-              mv ${OUTDIR}/${INPREF}_${REG_MODEL}_tmp.nii ${OUTDIR}/${INPREF}_${REG_MODEL}.nii
+              #mv ${OUTDIR}/${INPREF}_${REG_MODEL}_tmp.nii ${OUTDIR}/${INPREF}_${REG_MODEL}.nii
 
               copy_header ${OUTDIR}/${INPREF} ${OUTDIR}/${INPREF}_${REG_MODEL}.nii
 
@@ -1922,7 +2145,7 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
               if [ "$DELMOD" -eq "2" ]; then
                 3dReHo  -inset ${OUTDIR}/${INPREF}_${REG_MODEL}.nii  -prefix ${QA_DIR}/REHO.nii
                 copy_header ${ANATDIR}/mean_func_data_nds.nii ${QA_DIR}/REHO.nii
-                matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', '${QA_DIR}/REHO.nii', 1, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [6 6 6]); exit;"
+                matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', '${QA_DIR}/REHO.nii', 1, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [6 6 6]); exit;"
                 mv ${QA_DIR}/swREHO.nii ${QA_DIR}/REHO.nii
               fi
 
@@ -1965,14 +2188,6 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
             fi
 
 
-
-     #        python ${QCDIR}/QC_FC.py -out ${QA_DIR} -in ${OUTDIR}  \
-    #                    -fname ${INPREF}_${REG_MODEL}.nii -outf FC_${REG_MODEL}  \
-   #                     -atlas ${ANATDIR}/yeo17cobra_native_${REG_MODEL}.nii \
-  #                      -atlas_name yeo17_cobra \
- #                       -vmin -0.6 -vmax 0.6 \
-#                         -dpi 72
-
               if [ "$DELMOD" -eq "1" ]; then
                 rm -f ${OUTDIR}/${INPREF}_${REG_MODEL}.nii
               fi
@@ -1997,15 +2212,32 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
               parallel -j4 --line-buffer model_qa ::: ${OUTDIR} ::: ${ANATDIR} ::: ${DARTEL_TEMPLATE_PREF} ::: ${WDIR} ::: ${TR} ::: ${QCDIR}  :::  proc_data_native_u :::   AGG ::: FAC_WM_CSF FAC_DD FAD_DiC_RP24 FAC_DiC_RP24 FAD_DD_RP24 FAC_DD_RP24 ::: ${DO_QA}
           else
               # FAC_CC_RP6 FAD_CC_RP6 FAC_DiC_RP6 FAD_DiC_RP6 FAC_CC_RP24 FAD_CC_RP24 FAC_DiC_RP24 FAD_DiC_RP24 FAC_WM_CSF_RP6 FAD_WM_CSF_RP24 RP24_WM_CSF RP24_CC FAC_PHY FAD_PHY RP24_PHY
-              parallel -j1 --line-buffer model_qa ::: ${OUTDIR} ::: ${ANATDIR} ::: ${DARTEL_TEMPLATE_PREF} ::: ${WDIR} ::: ${TR} ::: ${QCDIR}  :::  proc_data_native ::: AGG ::: \
-                  RP24_WM_CSF_CEN FAD_DiC_RP24_CEN FAC_DiC_RP24_CEN \
-                  FAD_DiC_RP6_CEN FAC_DiC_RP6_CEN \
-                  FAD_DiC_RP6_DVOX_CEN FAC_DiC_RP6_DVOX_CEN \
-                  FAD_DiC_RP24_CEN_DVOX FAC_DiC_RP24_CEN_DVOX \
-                  FAD_CC_RP24_CEN_DVOX FAC_CC_RP24_CEN_DVOX \
-                  FAD_DiC_CC_RP24_PCA95_CEN_DVOX  \
-                  FAC_DiC_CC_RP24_PCA95_CEN_DVOX \
+              parallel -j4 --line-buffer model_qa ::: ${OUTDIR} ::: ${ANATDIR} ::: ${DARTEL_TEMPLATE_PREF} ::: ${WDIR} ::: ${TR} ::: ${QCDIR}  :::  proc_data_native ::: AGG ::: \
+                  RP24_WM_CSF_CEN \
+                  RP24_WM_CSF_DD_CEN \
+                  RP24_CC_CEN \
+                  RP24_PHY_CEN \
+                  FAD_CEN \
+                  FAD_CC_CEN \
+                  FAD_DiC_CEN \
+                  FAD_D3C_CEN \
+                  FAD_PHY_CEN \
+                  FAD_CC_RP6_CEN \
+                  FAD_DiC_RP6_CEN \
+                  FAD_D3C_RP6_CEN \
+                  FAD_PHY_RP24_CEN \
+                  FAD_PHY_D3C_RP6_CEN \
+                  FAD_CC_D3C_RP6_CEN \
+                  FAD_DiC_RP24_CEN \
+                  FAD_D3C_RP24_CEN \
                   ::: ${DO_QA}
+
+              #FAD_DiC_RP6_CEN FAC_DiC_RP6_CEN \
+              #FAD_DiC_RP6_DVOX_CEN FAC_DiC_RP6_DVOX_CEN \
+              #FAD_DiC_RP24_CEN_DVOX FAC_DiC_RP24_CEN_DVOX \
+              #FAD_CC_RP24_CEN_DVOX FAC_CC_RP24_CEN_DVOX \
+              #FAD_DiC_CC_RP24_PCA95_CEN_DVOX  \
+              #FAC_DiC_CC_RP24_PCA95_CEN_DVOX \
           fi
       else
           parallel -j1 --line-buffer model_qa ::: ${OUTDIR} ::: ${ANATDIR} ::: ${DARTEL_TEMPLATE_PREF} ::: ${WDIR} ::: ${TR} ::: ${QCDIR}  :::  proc_data_native_u :::  AGG ::: ${REG_MODEL} ::: ${DO_QA}
@@ -2048,9 +2280,9 @@ if [ "$DO_NORM" -eq "1" ]; then
             cp -f ${ANATDIR}/mean_func_data_nds.nii ${OUTDIR}/mean_func_data_nds.nii
 
             #matlab "-nodesktop -nosplash " <<<"coreg_same_image('${OUTDIR}/mean_func_data_nds.nii', '${OUTDIR}/fix_mean.nii', '${OUTDIR}/proc_data_native_fix_tmp.nii', ${NVOLS}); exit;"
-            matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${OUTDIR}/proc_data_native_fix_tmp.nii'}, ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5], 4); exit;"
+            matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${OUTDIR}/proc_data_native_fix_tmp.nii'}, ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5], 4); exit;"
 
-            matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/csf_tpm_native.nii', '${ANATDIR}/wm_tpm_native.nii', '${ANATDIR}/gm_tpm_native.nii'}, ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [2 2 2],1); exit;"
+            matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/csf_tpm_native.nii', '${ANATDIR}/wm_tpm_native.nii', '${ANATDIR}/gm_tpm_native.nii'}, ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [2 2 2],1); exit;"
             #matlab "-nodesktop -nosplash " <<<"coreg_normalise('${OUTDIR}/mean_func_data_nds.nii', '${ANATDIR}/wm_tpm_native.nii', ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0]); exit;"
             #matlab "-nodesktop -nosplash " <<<"coreg_normalise('${OUTDIR}/mean_func_data_nds.nii', '${ANATDIR}/gm_tpm_native.nii', ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0]); exit;"
 

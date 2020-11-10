@@ -6,6 +6,20 @@ printf "\033c"
 
 START=$(date -u +%s.%N)
 
+loop_pet()
+{
+	i=$2
+	if [ "$i" -lt "10" ]; then
+		ID=0$i
+	else
+		ID=$i
+	fi
+
+	./proc_main.sh ${1}${ID}  /home/luna.kuleuven.be/u0101486/workspace/fmri_proc/conf_files/rs_pet.conf
+}
+export -f loop_pet
+
+
 loop_t1()
 {
 	i=$3
@@ -156,7 +170,7 @@ export -f loop_cai_china
 
 #matlab "-nodesktop -nosplash " <<<"run_icap; exit;"
 
-rm -f /home/luna.kuleuven.be/u0101486/.afni.log 
+rm -f /home/luna.kuleuven.be/u0101486/.afni.log
 
 #parallel -j10 --line-buffer loop ::: G B N ::: 1 2 3 ::: $(seq 1 75)
 #parallel -j10 --line-buffer loop ::: B N ::: 1 2 3 ::: $(seq 1 75)
@@ -165,7 +179,13 @@ rm -f /home/luna.kuleuven.be/u0101486/.afni.log
 #parallel -j3 --line-buffer loop_crunch ::: 20
 
 #parallel -j3 --line-buffer loop_crunch ::: 5 6 7 8 9 10 11 12 13  #$(seq 1 106)
-#parallel -j8 --line-buffer loop ::: B  ::: 1 ::: 2
+
+# O Y
+parallel -j5 --line-buffer loop_pet ::: O Y ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
+#parallel -j5 --line-buffer loop_pet ::: O ::: 2
+
+
+#parallel -j8 --line-buffer loop ::: B  ::: 3 :::  24
 #parallel -j3 --line-buffer loop_crunch ::: $(seq 1 106)
 
 #N1_06 N1_14 N1_21 N1_27 \
@@ -193,7 +213,7 @@ rm -f /home/luna.kuleuven.be/u0101486/.afni.log
 
 #parallel -j3 --line-buffer loop_connex ::: A Y ::: $(seq 1 3)
 # PHYSIO is failing... see why
-parallel -j3 --line-buffer loop_connex ::: A ::: $(seq 1 50)
+#parallel -j3 --line-buffer loop_connex ::: A ::: $(seq 1 50)
 
 
 #parallel -j10 --line-buffer loop_t1_connex ::: A Y ::: $(seq 1 120)

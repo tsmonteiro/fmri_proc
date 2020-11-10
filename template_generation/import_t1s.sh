@@ -15,6 +15,8 @@ if [ ! -f "${OUTDIR}/t1_${SUB}.nii" ]; then
 	exit
 fi
 
+# Correct the orientation of T1 to somethign close to standard orientation
+matlab "-nodesktop -nosplash " <<<"cd './matlab'; p_reorient('${OUTDIR}/t1_${SUB}.nii'); exit;"
 
 fslmaths ${OUTDIR}/t1_${SUB}.nii -thr 10 -nan ${OUTDIR}/t1_${SUB}_t.nii
 gunzip -f ${OUTDIR}/t1_${SUB}_t.nii.gz
