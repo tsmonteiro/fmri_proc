@@ -7,14 +7,16 @@ printf "\033c"
 FIXBIN=/home/luna.kuleuven.be/u0101486/Software/fix/ # PATH where ICA_FIX is installed
 WDIR='/home/luna.kuleuven.be/u0101486/workspace/fmri_proc/'
 #BASEDIR=/home/luna.kuleuven.be/u0101486/workspace/data/CRUNCH/tmp/
-BASEDIR=/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/tmp/
+#BASEDIR=/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/tmp/
+BASEDIR=/home/luna.kuleuven.be/u0101486/workspace/data/RSPET/tmp/
 #BASEDIR=/home/luna.kuleuven.be/u0101486/workspace/data/CAI_China/tmp/
 
 
 #CLASSIFIER=/home/luna.kuleuven.be/u0101486/workspace/data/CRUNCH/fix_classifier_rs/classifier
 #CLASSIFIER=/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_belgium_b/classifier
 #CLASSIFIER=/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_norway_b/classifier
-CLASSIFIER=/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_germany_b/classifier
+#CLASSIFIER=/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_germany_b/classifier
+CLASSIFIER=/home/luna.kuleuven.be/u0101486/workspace/data/RSPET/fix_classifier/classifier
 #CLASSIFIER=/home/luna.kuleuven.be/u0101486/workspace/data/CAI_China/fix_classifier_rs/classifier
 
 THR_LIST=(1 5 10 15 25 35 50 60)
@@ -141,15 +143,31 @@ THR_LIST=(1 5 10 15 25 35 50 60)
 # G3_15 OK2
 # G3_16 OK2
 # G3_17 OK2
-SUBS=(${BASEDIR}/G1_01/FIX ${BASEDIR}/G1_11/FIX ${BASEDIR}/G1_15/FIX ${BASEDIR}/G1_16/FIX \
-      ${BASEDIR}/G1_30/FIX ${BASEDIR}/G2_01/FIX ${BASEDIR}/G2_12/FIX \
-      ${BASEDIR}/G2_14/FIX ${BASEDIR}/G2_15/FIX ${BASEDIR}/G2_17/FIX ${BASEDIR}/G3_09/FIX \
-      ${BASEDIR}/G3_12/FIX ${BASEDIR}/G3_14/FIX ${BASEDIR}/G3_15/FIX ${BASEDIR}/G3_16/FIX \
-      ${BASEDIR}/G3_17/FIX)
+#SUBS=(${BASEDIR}/G1_01/FIX ${BASEDIR}/G1_11/FIX ${BASEDIR}/G1_15/FIX ${BASEDIR}/G1_16/FIX \
+#      ${BASEDIR}/G1_30/FIX ${BASEDIR}/G2_01/FIX ${BASEDIR}/G2_12/FIX \
+#      ${BASEDIR}/G2_14/FIX ${BASEDIR}/G2_15/FIX ${BASEDIR}/G2_17/FIX ${BASEDIR}/G3_09/FIX \
+#      ${BASEDIR}/G3_12/FIX ${BASEDIR}/G3_14/FIX ${BASEDIR}/G3_15/FIX ${BASEDIR}/G3_16/FIX \
+#      ${BASEDIR}/G3_17/FIX)
 # CAI China
 #SUBS=(${BASEDIR}/sub101/FIX ${BASEDIR}/sub023/FIX ${BASEDIR}/sub008/FIX ${BASEDIR}/sub115/FIX \
 #      ${BASEDIR}/sub122/FIX ${BASEDIR}/sub018/FIX ${BASEDIR}/sub015/FIX ${BASEDIR}/sub110/FIX \
 #      ${BASEDIR}/sub109/FIX ${BASEDIR}/sub012/FIX ${BASEDIR}/sub004/FIX ${BASEDIR}/sub124/FIX)
+
+
+#O01 OK
+#O04 Ok
+#O06 OK
+#O10 OK
+#O13 OK
+#Y01 OK
+#Y02 OK
+#Y04 OK
+#Y10 OK
+#Y14 OK
+#Y12 OK
+SUBS=(${BASEDIR}/O01/FIX ${BASEDIR}/O04/FIX ${BASEDIR}/O06/FIX ${BASEDIR}/O10/FIX \
+      ${BASEDIR}/O13/FIX ${BASEDIR}/O15/FIX ${BASEDIR}/Y01/FIX ${BASEDIR}/Y04/FIX ${BASEDIR}/Y10/FIX \
+      ${BASEDIR}/Y12/FIX ${BASEDIR}/Y02/FIX ${BASEDIR}/Y14/FIX ${BASEDIR}/Y07/FIX)
 NSUBS=0
 
 

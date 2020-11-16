@@ -125,6 +125,14 @@ do
 
       # Now, a few extra configurations and optional steps
 
+      # FWHM smoothing applied when warping functional data to MNI space
+      VAL=$(awk -F\=  '/^\<NORM_SMOOTH\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+        NORM_SMOOTH=${VAL}
+      fi
+
+
+
       # Clean unnecessary intermediate files
       VAL=$(awk -F\=  '/^\<CLEAN_INTERMEDIATE\>/{print $2}' "${CONFIG}"  | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
       if [[ ! -z "${VAL}" ]]; then
@@ -901,21 +909,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
             #rm -f ${OUTDIR}/nat_mask.nii
             cp -f ${OUTDIR}/${PREF}func_data.nii ${OUTDIR}/proc_data_native.nii
 
-            #fslmaths ${OUTDIR}/proc_data_native.nii -Tmean ${OUTDIR}/proc_data_native_median.nii
-            #fast -n 4 --nopve -N -o ${OUTDIR}/func_seg.nii ${OUTDIR}/proc_data_native_median.nii
-            #fslmaths ${OUTDIR}/func_seg_seg.nii -thr 1.5 -bin -fillh26 -fillh26 -fillh -fillh ${OUTDIR}/nat_mask.nii
-            #gunzip -f ${OUTDIR}/nat_mask.nii
-
-            #rm -f ${OUTDIR}/proc_data_native_median.nii.gz
-
-
             3dAutomask -prefix ${OUTDIR}/nat_mask.nii -apply_prefix ${OUTDIR}/proc_data_native.nii ${OUTDIR}/${PREF}func_data.nii
-            #3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/${PREF}func_data.nii
-
-
-            #3dcalc -a ${OUTDIR}/proc_data_native.nii -b ${OUTDIR}/nat_mask.nii -expr "a*b" -prefix ${OUTDIR}/proc_data_native_masked.nii
-
-            #mv ${OUTDIR}/proc_data_native_masked.nii ${OUTDIR}/proc_data_native.nii
 
             fslmaths ${OUTDIR}/proc_data_native.nii -Tmean ${OUTDIR}/mean_func_native.nii
             gunzip -f ${OUTDIR}/mean_func_native.nii.gz
@@ -1857,19 +1851,7 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
       START=$(date -u +%s.%N)
 
 
-          #fslmaths ${OUTDIR}/proc_data_native_nlm.nii -Tmean ${OUTDIR}/func_mean.nii
-          #gunzip -f ${OUTDIR}/func_mean.nii.gz
-          #rm -f -r ${OUTDIR}/QA_*
           {
-          #cd ${FIXBIN}
-          ## Non-aggressive clean-up
-          #source ${FIXBIN}/fix -a ${FIXDIR}/fix4melview_${FIX_CL_LABEL}_thr${FIX_THR}.txt -A
-          #cd ${CURDIR}
-
-          #rm -f ${OUTDIR}/proc_data_native_fix.nii
-          #cp ${FIXDIR}/filtered_func_data_clean.nii.gz ${OUTDIR}/proc_data_native_fix.nii.gz
-          #gunzip -f ${OUTDIR}/proc_data_native_fix.nii.gz
-
           if [ "$DO_QA" -eq "1" ]; then
             rm -f -r ${OUTDIR}/QA_*
           fi
@@ -2240,7 +2222,7 @@ if [ "$DO_QA" -eq "1" ] || [ "$DO_QA" -eq "2" ]; then
               #FAC_DiC_CC_RP24_PCA95_CEN_DVOX \
           fi
       else
-          parallel -j1 --line-buffer model_qa ::: ${OUTDIR} ::: ${ANATDIR} ::: ${DARTEL_TEMPLATE_PREF} ::: ${WDIR} ::: ${TR} ::: ${QCDIR}  :::  proc_data_native_u :::  AGG ::: ${REG_MODEL} ::: ${DO_QA}
+          parallel -j1 --line-buffer model_qa ::: ${OUTDIR} ::: ${ANATDIR} ::: ${DARTEL_TEMPLATE_PREF} ::: ${WDIR} ::: ${TR} ::: ${QCDIR}  :::  proc_data_native :::  AGG ::: ${REG_MODEL} ::: ${DO_QA}
       fi
       rm -f ${OUTDIR}/proc_data_native_fix.nii
       rm -f ${OUTDIR}/ptmp_*.nii
@@ -2262,35 +2244,35 @@ if [ "$DO_NORM" -eq "1" ]; then
       START=$(date -u +%s.%N)
 
       {
-            WDIR=$(awk -F\=  '/^WDIR/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+            WDIR=${WDIR_ORIG}
             cd ${WDIR}
-
-            rm -f ${ANATDIR}/c6anat_proc.nii
 
             rm -f ${OUTDIR}/proc_data_mni*.nii
 
 
-            INPREF=proc_data_native_u_${REG_MODEL}
+            INPREF=proc_data_native_${REG_MODEL}
 
             rm -f ${OUTDIR}/fix_mean.nii
 
-            cp -f ${OUTDIR}/${INPREF}.nii ${OUTDIR}/proc_data_native_fix_tmp.nii
-            NVOLS=`fslnvols ${OUTDIR}/proc_data_native_fix_tmp.nii`
-            3dTcat -prefix ${OUTDIR}/fix_mean.nii ${OUTDIR}/proc_data_native_fix_tmp.nii[0]
+            cp -f ${OUTDIR}/${INPREF}.nii ${OUTDIR}/proc_data_native_tmp.nii
+            NVOLS=`fslnvols ${OUTDIR}/proc_data_native_tmp.nii`
+            #3dTcat -prefix ${OUTDIR}/fix_mean.nii ${OUTDIR}/proc_data_native_tmp.nii[0]
+
             cp -f ${ANATDIR}/mean_func_data_nds.nii ${OUTDIR}/mean_func_data_nds.nii
 
-            #matlab "-nodesktop -nosplash " <<<"coreg_same_image('${OUTDIR}/mean_func_data_nds.nii', '${OUTDIR}/fix_mean.nii', '${OUTDIR}/proc_data_native_fix_tmp.nii', ${NVOLS}); exit;"
-            matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${OUTDIR}/proc_data_native_fix_tmp.nii'}, ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5], 4); exit;"
 
-            matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/csf_tpm_native.nii', '${ANATDIR}/wm_tpm_native.nii', '${ANATDIR}/gm_tpm_native.nii'}, ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [2 2 2],1); exit;"
+            #matlab "-nodesktop -nosplash " <<<"coreg_same_image('${OUTDIR}/mean_func_data_nds.nii', '${OUTDIR}/fix_mean.nii', '${OUTDIR}/proc_data_native_fix_tmp.nii', ${NVOLS}); exit;"
+            matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${OUTDIR}/mean_func_data_nds.nii', {'${OUTDIR}/proc_data_native_tmp.nii','${OUTDIR}/mean_func_data_nds.nii','${ANATDIR}/csf_tpm_native.nii', '${ANATDIR}/wm_tpm_native.nii', '${ANATDIR}/gm_tpm_native.nii'}, [${NVOLS} 1 1 1 1], '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [${NORM_SMOOTH} ${NORM_SMOOTH} ${NORM_SMOOTH}], 4); exit;"
+
+            #matlab "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/csf_tpm_native.nii', '${ANATDIR}/wm_tpm_native.nii', '${ANATDIR}/gm_tpm_native.nii'}, ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [2 2 2],1); exit;"
             #matlab "-nodesktop -nosplash " <<<"coreg_normalise('${OUTDIR}/mean_func_data_nds.nii', '${ANATDIR}/wm_tpm_native.nii', ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0]); exit;"
             #matlab "-nodesktop -nosplash " <<<"coreg_normalise('${OUTDIR}/mean_func_data_nds.nii', '${ANATDIR}/gm_tpm_native.nii', ${NVOLS}, '${ANATDIR}/anat_proc.nii', [0 0 1], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0]); exit;"
 
             rm -f ${OUTDIR}/fix_mean.nii
             rm -f ${OUTDIR}/rfix_mean.nii
-            rm -f ${OUTDIR}/proc_data_native_fix_tmp.nii
-            rm -f ${OUTDIR}/rproc_data_native_fix_tmp.nii
-            rm -f ${OUTDIR}/rproc_data_native_fix_tmp.mat
+            rm -f ${OUTDIR}/proc_data_native_tmp.nii
+            rm -f ${OUTDIR}/rproc_data_native_tmp.nii
+            rm -f ${OUTDIR}/rproc_data_native_tmp.mat
             rm -f ${OUTDIR}/rcsf_tpm_native.nii
             rm -f ${OUTDIR}/rcsf_tpm_native.mat
             rm -f ${OUTDIR}/rwm_tpm_native.nii
@@ -2298,59 +2280,50 @@ if [ "$DO_NORM" -eq "1" ]; then
             rm -f ${OUTDIR}/rgm_tpm_native.nii
             rm -f ${OUTDIR}/rgm_tpm_native.mat
 
-            rm -f ${OUTDIR}/proc_data_native_fix_tmp.mat
+            rm -f ${OUTDIR}/proc_data_native_tmp.mat
             rm -f ${OUTDIR}/mean_func_data_nds.nii
-            mv ${OUTDIR}/swproc_data_native_fix_tmp.nii ${OUTDIR}/proc_data_mni.nii
-            mv ${ANATDIR}/swcsf_tpm_native.nii ${ANATDIR}/csf_tpm_group.nii
-            mv ${ANATDIR}/swwm_tpm_native.nii ${ANATDIR}/wm_tpm_group.nii
-            mv ${ANATDIR}/swgm_tpm_native.nii ${ANATDIR}/gm_tpm_group.nii
+            rm -f ${OUTDIR}/example_func.nii
+            mv ${OUTDIR}/swproc_data_native_tmp.nii ${OUTDIR}/proc_data_mni.nii
+            mv ${OUTDIR}/swmean_func_data_nds.nii ${OUTDIR}/mean_func_mni.nii
+            mv ${ANATDIR}/swcsf_tpm_native.nii ${ANATDIR}/csf_tpm_mni.nii
+            mv ${ANATDIR}/swwm_tpm_native.nii ${ANATDIR}/wm_tpm_mni.nii
+            mv ${ANATDIR}/swgm_tpm_native.nii ${ANATDIR}/gm_tpm_mni.nii
 
-
-            #fslmaths ${ANATDIR}/csf_mask_group.nii -thr 0.3 -bin -ero  ${ANATDIR}/csf_mask_group_.nii
-            #gunzip -f ${ANATDIR}/csf_mask_group_.nii.gz
-            #mv ${ANATDIR}/csf_mask_group_.nii  ${ANATDIR}/csf_mask_group.nii
-
-            #fslmaths ${ANATDIR}/wm_mask_group.nii -thr 0.4 -bin  -ero  ${ANATDIR}/wm_mask_group_.nii
-            #gunzip -f ${ANATDIR}/wm_mask_group_.nii.gz
-            #mv ${ANATDIR}/wm_mask_group_.nii  ${ANATDIR}/wm_mask_group.nii
-
-            #fslmaths ${ANATDIR}/gm_mask_group.nii -thr 0.5 -bin   ${ANATDIR}/gm_mask_group_.nii
-            #gunzip -f ${ANATDIR}/gm_mask_group_.nii.gz
-            #mv ${ANATDIR}/gm_mask_group_.nii  ${ANATDIR}/gm_mask_group.nii
 
             3dAutomask -prefix ${OUTDIR}/mask_mni.nii ${OUTDIR}/proc_data_mni.nii
+
+            3dcalc -a ${OUTDIR}/proc_data_mni.nii  -expr "a*1" -short -gscale -prefix ${OUTDIR}/proc_data_mni_2.nii
+            mv ${OUTDIR}/proc_data_mni_2.nii  ${OUTDIR}/proc_data_mni.nii
+
+            3dcalc -a ${OUTDIR}/${INPREF}.nii -expr "a*1" -short -gscale -prefix ${OUTDIR}/${INPREF}_2.nii
+            mv ${OUTDIR}/${INPREF}_2.nii ${OUTDIR}/${INPREF}.nii
+
             #3dBlurToFWHM -quiet -prefix ${OUTDIR}/proc_data_mni_s.nii -input ${OUTDIR}/proc_data_mni.nii -FWHM 6 -rate 2 -mask ${OUTDIR}/mask_mni.nii
 
-            #mv ${OUTDIR}/proc_data_mni_s.nii ${OUTDIR}/proc_data_mni.nii
-            rm -f ${OUTDIR}/${INPREF}.nii
-            #fslmaths  ${OUTDIR}/proc_data_mni.nii -ing 1000 ${OUTDIR}/proc_data_mni.nii -odt short
-            #gunzip -f ${OUTDIR}/proc_data_mni.nii.gz
-            #mv ${OUTDIR}/proc_data_mni.nii ${OUTDIR}/proc_data_${CURR_SUFF}.nii
-
-
-
-} &> ${OUTDIR}/05_norm2mni.log
+} &> ${LOGDIR}/WarpFunctional2MNI.log
 
       END=$(date -u +%s.%N)
       DIFF=`echo "( $END - $START )" | bc`
       printf "DONE [%.1f s]\n" $DIFF
 fi
 
-
-exit
-
-
-
-#rm -f ${OUTDIR}/proc_data_native*.nii
-exit
-
+rm -f -r ${OUTDIR}/dicer_fix
+rm -f ${OUTDIR}/t1.nii
+rm -f ${OUTDIR}/mean.nii.gz
+rm -f ${ANATDIR}/anat_native_tmp_res.nii
+rm -f ${ANATDIR}/mean_func_data_nds_dartel.nii
+exit 1
+#TODO
+# Create an export script to be called here, if desired
+# The idea of having such a script would be to copy specific files in an
+# arbitrary folder structure.
 #=====================================
 printf "\t[${NET}] Moving to external drive ... "
 START=$(date -u +%s.%N)
 
 {
 
-mkdir ${FINALDIR}
+mkdir -p ${FINALDIR}
 rm ${FINALDIR}/*
 } &> /dev/null
 
