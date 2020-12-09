@@ -15,14 +15,46 @@ parser = argparse.ArgumentParser(description='Estimate the number of ICA compone
 # Required options
 reqoptions = parser.add_argument_group('Required arguments')
 
-reqoptions.add_argument('-eig_file', dest="eigFile", required=True, help='The PCA eigenvectors estmiated by AFNI\'s 3dpc' )
+reqoptions.add_argument('-eig_file', dest="eigFile", required=True, help='The PCA eigenvectors estimated by AFNI\'s 3dpc' )
 reqoptions.add_argument('-outfile', dest="outFile", required=False, help='DEPRECATED' )
+reqoptions.add_argument('-motion', dest="motion", required=True, default="high", help='Motion file' )
 
 
 args = parser.parse_args()
 
 
 eigFile = args.eigFile
+
+
+qualityGrade = 1
+
+
+rp = np.loadtxt( args.motion )
+
+drp     = np.concatenate((np.zeros((1,6), dtype=float), np.diff( rp, axis=0 )) )
+drp_rad = np.concatenate((np.zeros((1,6), dtype=float), np.diff( np.deg2rad(rp), axis=0 )) )
+
+fd_rot = abs(drp_rad[:,0]*50) + abs(drp_rad[:,1]*50) + abs(drp_rad[:,2]*50)
+fd_mot = abs(drp[:,3]) + abs(drp[:,4]) + abs(drp[:,5])
+
+
+fd = fd_rot + fd_mot
+
+if np.mean(fd) > 0.25 and np.max(rp) > 3:
+    qualityGrade = 3
+elif np.mean(fd) > 0.25 or np.max(rp) > 3:
+        qualityGrade = 2
+
+# Somewhat by experience, higher motion subjects tend to
+#if qualityGrade == 1:
+#    thr = 0.175
+#   ev  = 90
+#elif qualityGrade == 2:
+#    thr = 0.125
+#    ev  = 90
+#else:
+thr = 0.1
+ev  = 80
 
 
 #%%
@@ -42,21 +74,22 @@ sumTotal    = 0
 lowChangeCount = 0
 for i in range( nComps ):
     if i > 9:
-        m0 = np.mean( eigs[i-10:i-1,1]  )
-        #val = 100 * eigs[i,1]/m0
-        #val = 100 * (eigs[i,3] - np.median( eigs[i-8:i-1,3], axis=0  ))
+
         val = 100 * (eigs[i,3] - eigs[i-1,3]  )
         modelOrder = i
         #print('{} - {:.5f} / {:.2f}%'.format(i, val, eigs[i,3]*100))
-        # New components are explaining little variance (delta < 0.3%)
+        # New components are explaining little variance (delta < 0.2%)
         # - OR -
         # 80% of total variance explained
-        if val < 0.3:
+
+        # High-motion/lower quality data sets likely require more stringent
+        # parameters here.
+        if val < thr:
             # Sometimes there is some "noise", so we want to be stably below this threshold
             lowChangeCount += 1
-        
 
-        if (lowChangeCount >= 3 and (eigs[i,3]*100) > 50) or (eigs[i,3]*100) > 80:
+
+        if (lowChangeCount >= 3 and (eigs[i,3]*100) > 66) or (eigs[i,3]*100) > ev:
             break
 
 if modelOrder == 0:

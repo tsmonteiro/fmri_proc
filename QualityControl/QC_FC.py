@@ -236,8 +236,8 @@ vmax = float(args.vmax)
 plt.rcParams.update({'font.size': 20, 'font.weight':'bold'} )
 
 # low_pass=0.1, smoothing_fwhm=5
-masker   = NiftiLabelsMasker(labels_img=args.atlas, standardize=True, resampling_target=None,
-                             t_r=TR, high_pass=0.01, low_pass=0.15, smoothing_fwhm=None)
+masker   = NiftiLabelsMasker(labels_img=args.atlas, standardize=False, resampling_target=None,
+                             t_r=TR, high_pass=0.01, low_pass=0.1, smoothing_fwhm=5)
 signal   = masker.fit_transform(funcImgFile)
 
 nScans   = signal.shape[0]

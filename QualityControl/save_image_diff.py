@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import nipype.algorithms.confounds as npalg
-import nilearn.plotting as nlp
+
 import nilearn.image as nimg
 import nilearn.signal as sgn
 
@@ -26,7 +26,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 def plot_brain(bgImg, overlayImg, ax, z, vmax, vmin, fig, axMat=None):
     if np.max(bgImg) > 1:
-        bgImg = bgImg / np.max(bgImg)
+        bgImg = bgImg / np.nanmax(bgImg)
+
+    bgImg[np.where( np.isnan(bgImg) )] = 0
+    overlayImg[np.where( np.isnan(overlayImg) )] = 0
     #roy_big_bl
     colors1 = plt.cm.BuPu(np.linspace(0., 1, 256))
     colors2 = plt.cm.inferno(np.linspace(0, 1, 256))
@@ -43,11 +46,14 @@ def plot_brain(bgImg, overlayImg, ax, z, vmax, vmin, fig, axMat=None):
         dummy=1+1
     else:
         sliceIm = overlayImg[:,:,z]
+
+
         sliceIm[sliceIm<vmin] = np.nan
 
         p1 = ax.imshow(sliceIm, cmap=mymap1,  aspect=None, interpolation=None, alpha=None, vmin=vmin, vmax=vmax)
 
         sliceIm = -overlayImg[:,:,z]
+
         sliceIm[sliceIm<vmin] = np.nan
 
         p2 = ax.imshow(sliceIm, cmap=mymap2,  aspect=None, interpolation=None, alpha=None, vmin=vmin, vmax=vmax)
@@ -213,10 +219,10 @@ t0 = 0
 tf = step
 
 if outType == 'std':
-	sd1 = np.std(data1, axis=3)
+	sd1 = np.nanstd(data1, axis=3)
 	sd1 = nimg.new_img_like(nii1,sd1)
 elif outType == 'mean':
-	sd1 = np.mean(data1, axis=3)
+	sd1 = np.nanmean(data1, axis=3)
 	sd1 = nimg.new_img_like(nii1,sd1)
 
 sdd = sd1.get_fdata() - sd2.get_fdata()
@@ -231,8 +237,8 @@ vminSd1 = np.percentile(sd1.get_fdata(), 90)
 vminSd2 = np.percentile(sd2.get_fdata(), 90)
 
 #np.max([np.max(sd1.get_fdata()),np.max(sd2.get_fdata())])
-vmaxSd = np.max([vmaxSd1, vmaxSd2])
-vminSd = np.max([vminSd1, vminSd2])
+vmaxSd = np.nanmax([vmaxSd1, vmaxSd2])
+vminSd = np.nanmax([vminSd1, vminSd2])
 
 
 
@@ -381,16 +387,16 @@ if voxOrder == 'z':
     data2 = np.reshape(data2, (X*Y*Z, N))
 
 
-mu    = np.mean(data1,axis=1)
-mu2   = np.mean(data2,axis=1)
+mu    = np.nanmean(data1,axis=1)
+mu2   = np.nanmean(data2,axis=1)
 
 thr   = np.percentile(mu, 75)
 
 data1 = data1 - mu[:, np.newaxis]
 data2 = data2 - mu2[:, np.newaxis]
 
-muData = np.mean( np.mean(data1,axis=1) )
-sdData = np.mean( np.std(data1,axis=1) )
+muData = np.nanmean( np.nanmean(data1,axis=1) )
+sdData = np.nanmean( np.nanstd(data1,axis=1) )
 vmin   = muData - 1*sdData
 vmax   = muData + 1*sdData
 

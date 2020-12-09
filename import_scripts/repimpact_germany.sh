@@ -20,10 +20,10 @@ if [ ! -d "$DATADIR" ]; then
 else
 	if [ ! -d "${OUTDIR}" ]; then
 		mkdir -p -m 777 ${OUTDIR}
-	#else
-	#	{
-	#	rm ${OUTDIR}/*
-	#	} &> /dev/null
+	else
+		{
+		rm ${OUTDIR}/*
+		} &> /dev/null
 	fi
 
 
@@ -50,11 +50,11 @@ else
 	}
 
 
-	#for F in "${DATADIR}/*T1W*.nii.gz"
-	#do
-	#	cp $F ${OUTDIR}/t1.nii.gz
-	#	gunzip -f ${OUTDIR}/t1.nii.gz
-	#done
+	for F in "${DATADIR}/*T1W*.nii.gz"
+	do
+		cp $F ${OUTDIR}/t1.nii.gz
+		gunzip -f ${OUTDIR}/t1.nii.gz
+	done
 
 
 fi

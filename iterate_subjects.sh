@@ -173,7 +173,12 @@ export -f loop_cai_china
 rm -f /home/luna.kuleuven.be/u0101486/.afni.log
 
 #parallel -j10 --line-buffer loop ::: G B N ::: 1 2 3 ::: $(seq 1 75)
-#parallel -j10 --line-buffer loop ::: B N ::: 1 2 3 ::: $(seq 1 75)
+
+
+#parallel -j8 --line-buffer loop ::: B N G ::: 1 2 3 ::: $(seq 1 75)
+
+
+
 #parallel -j8 --line-buffer loop_cai_china ::: 0 ::: 1
 #parallel -j8 --line-buffer loop_cai_china ::: 0 ::: 16
 #parallel -j3 --line-buffer loop_crunch ::: 20
@@ -181,7 +186,7 @@ rm -f /home/luna.kuleuven.be/u0101486/.afni.log
 #parallel -j3 --line-buffer loop_crunch ::: 5 6 7 8 9 10 11 12 13  #$(seq 1 106)
 
 # O Y
-parallel -j5 --line-buffer loop_pet ::: O Y ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
+#parallel -j5 --line-buffer loop_pet ::: O Y ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
 #parallel -j5 --line-buffer loop_pet ::: O ::: 2
 
 
@@ -195,8 +200,9 @@ parallel -j5 --line-buffer loop_pet ::: O Y ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14
 #      N3_18
 
 
-#parallel -j12 --line-buffer loop ::: B N G ::: 1 2 3 ::: $(seq 1 75)
-#parallel -j12 --line-buffer loop ::: G ::: 2 ::: 15
+parallel -j10 --line-buffer loop ::: B N G  ::: 1 2 3 ::: $(seq 1 75)
+#parallel -j10 --line-buffer loop ::: N :::  1 ::: 6
+
 
 #parallel -j10 --line-buffer loop ::: B N G ::: 1 2 3 ::: $(seq 1 75)
 #parallel -j12 --line-buffer loop ::: B ::: 1 ::: 7
@@ -211,9 +217,11 @@ parallel -j5 --line-buffer loop_pet ::: O Y ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14
 #parallel -j8 --line-buffer loop ::: B ::: 2 ::: 9 11 26 30 48 60
 #parallel -j8 --line-buffer loop ::: B ::: 3 ::: 17 37 41 30 32 58
 
-#parallel -j3 --line-buffer loop_connex ::: A Y ::: $(seq 1 3)
+#parallel -j3 --line-buffer loop_connex ::: A Y ::: $(seq 82 150)
+#parallel -j4 --line-buffer loop_connex :::  Y ::: $(seq 1 150)
+#parallel -j4 --line-buffer loop_connex ::: Y ::: 1 2
 # PHYSIO is failing... see why
-#parallel -j3 --line-buffer loop_connex ::: A ::: $(seq 1 50)
+#parallel -j3 --line-buffer loop_connex ::: A ::: 10 #$(seq 1 50)
 
 
 #parallel -j10 --line-buffer loop_t1_connex ::: A Y ::: $(seq 1 120)
@@ -222,7 +230,7 @@ parallel -j5 --line-buffer loop_pet ::: O Y ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14
 
 
 #parallel -j10 --line-buffer loop_crunch ::: $(seq 1 106) #14 16 17 36 41 46 51 52 60 62 63 70 85 97 102
-#parallel -j3 --line-buffer loop ::: N ::: 1 2 3 ::: $(seq 1 75)
+#parallel -j3 --line-buffer loop ::: B ::: 3 ::: 63
 #parallel -j2 --line-buffer loop_cai_china ::: 1  ::: 1
 #parallel -j6 --line-buffer loop_cai_china ::: 0 1 ::: $(seq 1 30)
 

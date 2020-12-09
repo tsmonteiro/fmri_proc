@@ -37,10 +37,11 @@ tpr = []
 sigPos = []
 
 #classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/CRUNCH/fix_classifier_rs/'
-#classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_belgium_b/'
-#classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_norway_b/'
+#classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_belgium/'
+#classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_norway/'
+classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/RepImpact/fix_classifier_germany_b/'
 #classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/CAI_China/fix_classifier_rs/'
-classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/RSPET/fix_classifier/'
+#classDir = '/home/luna.kuleuven.be/u0101486/workspace/data/RSPET/fix_classifier/'
 for fname in os.listdir(classDir):
     print(fname)
     if fname.startswith(resultPrefix) and fname.endswith(".txt"): 

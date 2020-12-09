@@ -46,7 +46,10 @@ nuis = np.loadtxt( nuisFile )
 nNuis = nuis.shape[1]
 
 for i in range( nNuis ):
-    nuis[:,i] = (nuis[:,i] - np.mean(nuis[:,i]))/ np.std(nuis[:,i])
+    if np.nanstd(nuis[:,i]) > 0:
+        nuis[:,i] = (nuis[:,i] - np.nanmean(nuis[:,i]))/ np.nanstd(nuis[:,i])
+    else:
+        nuis[:,i] = nuis[:,i] * 0
 
 
 pca_obj = PCA(n_components=None)
@@ -57,12 +60,13 @@ val = []
 
 nComps = pca_obj.explained_variance_ratio_.shape[0]
 
+
 modelOrder  = 0
 sumTotal    = 0
 for i in range( nComps ):
-        print('{:.05f}'.format(sumTotal))
+        print('{:.05f} >? {:.1f}'.format(sumTotal, varExp))
         if  sumTotal > varExp:
-            
+
             break
         modelOrder += 1
         sumTotal   += (100*pca_obj.explained_variance_ratio_[i])
@@ -75,4 +79,3 @@ print('Extracting {} out of {} components responsible for {:.01f}% of total vari
 
 np.savetxt(args.outFile, princomp[:,0:modelOrder], fmt='%.5f')
 #
-

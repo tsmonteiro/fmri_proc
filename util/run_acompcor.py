@@ -51,14 +51,14 @@ ometafilet  = sessDir + '/' + args.tcomp_out + '_meta.txt'
 
 ccinterface = npalg.CompCor()
 ccinterface.inputs.realigned_file = inFile
-ccinterface.inputs.mask_files = nuisFile
+ccinterface.inputs.mask_files = mskFile
 ccinterface.inputs.variance_threshold = vart
 ccinterface.inputs.pre_filter = 'polynomial'
 ccinterface.inputs.save_metadata = ometafileN
 ccinterface.inputs.regress_poly_degree = 1
 ccinterface.inputs.components_file = ofileN
 ccinterface.inputs.repetition_time = tr
-ccinterface.inputs.high_pass_cutoff = 200
+ccinterface.inputs.high_pass_cutoff = 100
 
 ccinterface.run()
 
@@ -71,7 +71,7 @@ tccinterface.inputs.percentile_threshold = 0.05
 tccinterface.inputs.mask_files = mskFile
 tccinterface.inputs.variance_threshold = vart
 tccinterface.inputs.pre_filter = 'polynomial'
-tccinterface.inputs.regress_poly_degree = 2
+tccinterface.inputs.regress_poly_degree = 1
 tccinterface.inputs.components_file = ofilet
 tccinterface.inputs.save_metadata = ometafilet
 tccinterface.inputs.repetition_time = tr
