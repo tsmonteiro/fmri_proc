@@ -1,0 +1,15 @@
+MANIFEST.in
+README.md
+setup.cfg
+setup.py
+pydeface/__init__.py
+pydeface/__main__.py
+pydeface/utils.py
+pydeface.egg-info/PKG-INFO
+pydeface.egg-info/SOURCES.txt
+pydeface.egg-info/dependency_links.txt
+pydeface.egg-info/entry_points.txt
+pydeface.egg-info/requires.txt
+pydeface.egg-info/top_level.txt
+pydeface/data/facemask.nii.gz
+pydeface/data/mean_reg2mean.nii.gz
