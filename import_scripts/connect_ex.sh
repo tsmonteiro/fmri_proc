@@ -35,7 +35,7 @@ print_timestamp_prefix()
 
 SUB=$1
 OUTDIR=$2
-DATADIR="/media/u0101486/Seagate Backup Plus Drive/ConnectExData/Thiago/$SUB/"
+DATADIR="/media/thiago/EXTRALINUX/fmri_proc/data/$SUB/"
 
 if [ ! -d "$DATADIR" ]; then
 	echo "Cannot find ${SUB}. Data import failed."
