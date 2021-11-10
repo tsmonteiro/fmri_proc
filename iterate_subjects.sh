@@ -16,7 +16,7 @@ loop_t1_connex()
 	fi
 
   echo "${1}${2}_$ID"
-	./template_generation/import_t1s.sh ${1}${ID}  /home/luna.kuleuven.be/u0101486/workspace/fmri_proc/import_scripts/connect_ex_t1.sh /home/luna.kuleuven.be/u0101486/workspace/data/ConnectEx/Template/anat
+	./template_generation/import_t1s.sh ${1}${ID}  /media/thiago/EXTRALINUX/fmri_proc/import_scripts/connect_ex_t1.sh /media/thiago/EXTRALINUX/data/ConnectEx/Template/anat
 
 
 }
@@ -38,7 +38,7 @@ loop_connex()
 
 
   echo "${1}$ID"
-  ./proc_main.sh ${1}${ID}  /home/luna.kuleuven.be/u0101486/workspace/fmri_proc/conf_files/connectex.conf
+  ./proc_main.sh ${1}${ID}  /media/thiago/EXTRALINUX/fmri_proc/conf_files/connectex.conf
 
   #./proc_main.sh ${1}${ID}_noPhys  /home/luna.kuleuven.be/u0101486/workspace/fmri_proc/conf_files/connectex_nophys.conf
 
