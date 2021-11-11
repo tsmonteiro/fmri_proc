@@ -7,13 +7,13 @@ addpath(genpath('/home/luna.kuleuven.be/u0101486/workspace/matlab/toolbox/spm12/
 addpath(genpath('/home/luna.kuleuven.be/u0101486/workspace/matlab/toolbox/PhLEM/'));
 %TODO add PhLEM and TAPAS to the path here
 
-fs        = 496; % Wireless physio unit, 500Hz for the wired one [Philips at least]
+fs        = 500; %496; % Wireless physio unit, 500Hz for the wired one [Philips at least]
 
  %OUTDIR    = '/home/luna.kuleuven.be/u0101486/workspace/data/ConnectEx/tmp/A002';
  %nScans    = 600;
  % nScansExtra    = 607; % nScansExtra here represents the number of scans in the Physio...
  % scanAlign = -1;
-  
+
 if scanAlign == -1
  lastScan  = nScansExtra;
  firstScan = nScansExtra - nScans + 1;
@@ -563,7 +563,7 @@ for d = 1:size(hrv,2)
         while k0 > 2 && ahrv(k0) > 0.5
             k0 = k0 - 1;
         end
-        while kf < (length(ahrv)-1) && ahrv(kf) > .5  
+        while kf < (length(ahrv)-1) && ahrv(kf) > .5
             kf = kf + 1;
         end
 

@@ -5,3 +5,5 @@ ext/fsl/
 proc_main (copy).sh
 wait_to_delete/
 matlab/toolbox/
+ext/mango_unix.zip
+ext/mango_unix/

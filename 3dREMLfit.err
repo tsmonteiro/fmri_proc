@@ -1,4 +1,2 @@
-*+ WARNING: No -R* output datasets? Skipping REML(a,b) estimation!
-*+ WARNING: No -matrix file! Making up a matrix with one column of 600 1s
-*+ WARNING: ColumnLabels attribute in matrix is missing!?
-*+ WARNING: -matrix file is missing Stim attributes:
+** ERROR: mri_read_ascii: couldn't open file /media/thiago/EXTRALINUX/fmri_proc/data/tmp/A090/physio_reg.ortho
+** FATAL ERROR: Cannot read -addbase file '/media/thiago/EXTRALINUX/fmri_proc/data/tmp/A090/physio_reg.ortho'

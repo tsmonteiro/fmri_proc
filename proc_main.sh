@@ -525,7 +525,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
 
       #=====================================
 
-      {
+      #{
             START=$(date -u +%s.%N)
 
             NVOLS=`fslnvols ${OUTDIR}/func_data.nii`
@@ -546,17 +546,6 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
             # This would enable getting the time from the DICOM files
             python ${UTILDIR}/write_slice_timing.py -tr ${TR} -nsl ${NZ} -acq ${ACQ_TYPE} -outms ${OUTDIR}/slice_acq_ms.txt -outs ${OUTDIR}/slice_acq_s.txt
 
-            fslmaths ${OUTDIR}/func_data.nii -thrp 10 ${OUTDIR}/tmp.nii
-            mv ${OUTDIR}/tmp.nii.gz ${OUTDIR}/func_data.nii.gz
-            gunzip -f ${OUTDIR}/func_data.nii.gz
-
-            3dAutomask -apply_prefix ${OUTDIR}/tmp.nii -prefix ${OUTDIR}/mask.nii ${OUTDIR}/func_data.nii
-            mv ${OUTDIR}/tmp.nii ${OUTDIR}/func_data.nii
-
-            # Generally, it might not be of any big help and it takes a long time
-            # So, it stays as a comment for the future
-            #${ABIN}/N4BiasFieldCorrection -i ${OUTDIR}/func_data.nii -d 4 -s 5 -v 1 -c [30x30x30x30, 1e-4] -o [ ${OUTDIR}/bfunc_data.nii ]
-            #PREF='b'
 
             # Very gentle removal of Rician noise
             if [ "$DO_NLM" -eq "1" ]; then
@@ -602,6 +591,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
                   mv ${OUTDIR}/*.gif ${IMGDIR}
             fi
 
+
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -633,13 +623,14 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
                   log_command_div 'Slice Timing correction'
             fi
 
+
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
             # If movement is extreme, this might help. Then again, it is questionable when exactly to do this.
             if [ "$DO_DPK" -eq "1" ]; then
                   log_command_div 'Despike START'
-                  3dDespike -nomask -NEW -localedit -cut 2 4 -prefix ${OUTDIR}/d${PREF}func_data.nii ${OUTDIR}/${PREF}func_data.nii
+                  3dDespike -nomask -NEW25 -localedit -prefix ${OUTDIR}/d${PREF}func_data.nii ${OUTDIR}/${PREF}func_data.nii
                   python ${QCDIR}/save_image_diff.py -o ${OUTDIR} -i ${OUTDIR} -a ${PREF}func_data.nii -b d${PREF}func_data.nii -msg1 'Before Despike' -msg2 'After Despike'
                   PREF=d${PREF}
                   mv ${OUTDIR}/*.png ${IMGDIR}
@@ -733,6 +724,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
             log_command_div 'Motion Correction END'
 
 
+
             if [ "${ESTIMATE_PHYSIO}" == "4" ]; then
                   3dAutomask -prefix ${OUTDIR}/ref_mask.nii -dilate 1 ${OUTDIR}/${PREF}func_data.nii
                   3dmerge -prefix ${OUTDIR}/tmp_smooth.nii -doall -1blur_fwhm 1 ${OUTDIR}/${PREF}func_data.nii
@@ -772,6 +764,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
             # Create native space brain mask
+            rm -rf ${OUTDIR}/nat_mask.nii
             3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/${PREF}func_data.nii
 
 
@@ -933,8 +926,8 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
             # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
             # Update brain mask
-            #rm -f ${OUTDIR}/nat_mask.nii
-            cp -f ${OUTDIR}/${PREF}func_data.nii ${OUTDIR}/proc_data_native.nii
+            rm -f ${OUTDIR}/nat_mask.nii
+            # cp -f ${OUTDIR}/${PREF}func_data.nii ${OUTDIR}/proc_data_native.nii
 
             3dAutomask -prefix ${OUTDIR}/nat_mask.nii -apply_prefix ${OUTDIR}/proc_data_native.nii ${OUTDIR}/${PREF}func_data.nii
 
@@ -968,7 +961,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
             fi
 
 
-      } &> ${LOGDIR}/02_Native_PreProcessing.log
+      #} &> ${LOGDIR}/02_Native_PreProcessing.log
       END=$(date -u +%s.%N)
       DIFF=`echo "( $END - $START )" | bc | awk '{printf "DONE in %.1f seconds", $0}'`
       echo $DIFF
