@@ -53,8 +53,8 @@ elif np.mean(fd) > 0.25 or np.max(rp) > 3:
 #    thr = 0.125
 #    ev  = 90
 #else:
-thr = 0.1
-ev  = 80
+thr = 0.175
+ev  = 75
 
 
 #%%
@@ -73,7 +73,7 @@ sumTotal    = 0
 
 lowChangeCount = 0
 for i in range( nComps ):
-    if i > 9:
+    if i > 30:
 
         val = 100 * (eigs[i,3] - eigs[i-1,3]  )
         modelOrder = i
@@ -89,7 +89,7 @@ for i in range( nComps ):
             lowChangeCount += 1
 
 
-        if (lowChangeCount >= 3 and (eigs[i,3]*100) > 66) or (eigs[i,3]*100) > ev:
+        if (lowChangeCount >= 3 and i > 80) or (eigs[i,3]*100) > ev or i > 150:
             break
 
 if modelOrder == 0:

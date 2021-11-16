@@ -380,7 +380,8 @@ nlm_smooth()
 
       {
           # -r 3x3x2 -p 2x2x1
-          ${ABIN}/DenoiseImage -x ${MASK} -r 3 -n Rician -i ${OUTDIR}/tmp/func_data.${FI}.nii  -o [ ${OUTDIR}/tmp/func_data_n.${FI}.nii ]
+          ${ABIN}/DenoiseImage -x ${MASK} -r 3x3x2 -p 2x2x1 -n Rician -i ${OUTDIR}/tmp/tmp_data.${FI}.nii  -o [ ${OUTDIR}/tmp/tmp_data_n.${FI}.nii ]
+
       } &> /dev/null
 
 }
@@ -550,11 +551,11 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
             # Very gentle removal of Rician noise
             if [ "$DO_NLM" -eq "1" ]; then
                  mkdir ${OUTDIR}/tmp
-                 3dTsplit4D -prefix ${OUTDIR}/tmp/func_data.nii -keep_datum ${OUTDIR}/${PREF}func_data.nii
+                 3dTsplit4D -prefix ${OUTDIR}/tmp/tmp_data.nii -keep_datum ${OUTDIR}/${PREF}func_data.nii
                  3dAutomask -prefix ${OUTDIR}/nat_mask.nii -dilate 2  ${OUTDIR}/${PREF}func_data.nii
                  parallel -j3 --line-buffer nlm_smooth ::: $(seq 0 ${NVOLS}) ::: ${OUTDIR} ::: ${ABIN} ::: ${OUTDIR}/nat_mask.nii
 
-                 3dTcat -prefix ${OUTDIR}/s${PREF}func_data.nii -tr ${TR} ${OUTDIR}/tmp/func_data_n*.nii
+                 3dTcat -prefix ${OUTDIR}/s${PREF}func_data.nii -tr ${TR} ${OUTDIR}/tmp/tmp_data_n*.nii
                  rm -f -r ${OUTDIR}/tmp
 
                  3dcalc -a ${OUTDIR}/${PREF}func_data.nii -b ${OUTDIR}/s${PREF}func_data.nii -expr "a-b" -prefix ${OUTDIR}/nlm_result.nii
@@ -648,6 +649,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
 
             log_command_div 'Motion Correction START'
 
+            rm -f ${OUTDIR}/nat_mask.nii
             3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/func_data.nii
 
             # Finds the volume with minimizes intensity distance
@@ -678,7 +680,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
 
 
                     3dTcat -prefix ${OUTDIR}/ref_vol.nii -TR ${TR} ${OUTDIR}/${PREF}func_data.nii[${REF_VOL}]
-                    3dAutomask  -apply_prefix ${OUTDIR}/ref_vol_masked.nii ${OUTDIR}/ref_vol.nii
+                    3dAutomask  -apply_prefix ${OUTDIR}/ref_vol_masked.nii -dialte 1 ${OUTDIR}/ref_vol.nii
 
                     # Actual motion correction [2-pass]
                     3dvolreg -Fourier -prefix ${OUTDIR}/r${PREF}func_data.nii -base ${OUTDIR}/ref_vol_masked.nii \
@@ -969,7 +971,7 @@ if [ "$DO_FUNC_NATIVE" -eq "1" ]; then
 
 fi
 
-exit 0
+
 
 
 # ------------------------------------------------------------------------
@@ -1455,15 +1457,39 @@ if [ "$DO_ICA" -eq "1" ]; then
             3dAutomask -prefix ${OUTDIR}/nat_mask_tpm.nii ${OUTDIR}/proc_data_native.nii
             copy_header ${ANATDIR}/mean_func_data_nds.nii ${OUTDIR}/nat_mask_tpm.nii
 
+            # ================
+            rm -f ${OUTDIR}/s_proc_data_native.nii
+            rm -f ${OUTDIR}/nat_mask.nii
+
+            mkdir ${OUTDIR}/tmp
+
+
+            NVOLS=`fslnvols ${OUTDIR}/func_data.nii`
+            NZ=`3dinfo -nk ${OUTDIR}/func_data.nii`
+
+
+
+            3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/proc_data_native.nii
+
+            3dTsplit4D -prefix ${OUTDIR}/tmp/tmp_data.nii -keep_datum ${OUTDIR}/proc_data_native.nii
+            parallel -j3 --line-buffer nlm_smooth ::: $(seq 0 ${NVOLS}) ::: ${OUTDIR} ::: ${ABIN} ::: ${OUTDIR}/nat_mask.nii
+
+            3dTcat -prefix ${OUTDIR}/s_proc_data_native.nii -tr ${TR} ${OUTDIR}/tmp/tmp_data_n*.nii
+            rm -f -r ${OUTDIR}/tmp
+            # ===============
+
 
             # -stopband 0 0.009
-            3dTproject -prefix ${OUTDIR}/tmp_melodic.nii -polort 2 -stopband 0 0.009 -norm -mask ${OUTDIR}/nat_mask_tpm.nii -TR ${TR} -input ${OUTDIR}/proc_data_native.nii
+            3dTproject -prefix ${OUTDIR}/tmp_melodic.nii -polort 1 \
+                  -stopband 0 0.009 -norm -mask ${OUTDIR}/nat_mask.nii \
+                  -TR ${TR}   \
+                  -input ${OUTDIR}/s_proc_data_native.nii
 
             rm -f -R ${OUTDIR}/melodic.ic
             rm -f -R ${OUTDIR}/FIX
 
             copy_header ${OUTDIR}/proc_data_native.nii ${OUTDIR}/tmp_melodic.nii
-            3dpc -eigonly -nscale -vmean -vnorm -mask ${OUTDIR}/nat_mask_tpm.nii -prefix ${OUTDIR}/pc_var ${OUTDIR}/tmp_melodic.nii
+            3dpc -eigonly -nscale -vmean -vnorm -mask ${OUTDIR}/nat_mask.nii -prefix ${OUTDIR}/pc_var ${OUTDIR}/tmp_melodic.nii
 
             NIC=`python ${UTILDIR}/ica_model_order.py -outfile ${OUTDIR}/num_ics.txt -eig_file ${OUTDIR}/pc_var_eig.1D -motion ${OUTDIR}/motion_estimate.par`
 
@@ -1600,6 +1626,7 @@ if [ "$DO_ICA" -eq "1" ]; then
 
 fi
 
+
 # Apply normalisation WARP
 # TODO --> Change Name to something more meaningful
 if [ "$DO_ATLAS_TO_NATIVE" -eq "1" ]; then
@@ -1607,7 +1634,7 @@ if [ "$DO_ATLAS_TO_NATIVE" -eq "1" ]; then
       printf "[$SUB] Converting Atlas to Native Space ... "
       START=$(date -u +%s.%N)
 
-      {
+    #  {
             # Not sure why the WDIR is being lost
             WDIR=${WDIR_ORIG}
             cd "${WDIR}"
@@ -1726,13 +1753,13 @@ if [ "$DO_ATLAS_TO_NATIVE" -eq "1" ]; then
 
 
 
-} &> ${LOGDIR}/MNI_to_Native.log
+#} &> ${LOGDIR}/MNI_to_Native.log
 
       END=$(date -u +%s.%N)
       DIFF=`echo "( $END - $START )" | bc | awk '{printf "DONE in %.1f seconds", $0}'`
       # printf "DONE [%.1f s]\n" $DIFF
 fi
-
+exit 0
 
 # ------------------------------------------------------------------------
 # ------------------------------------------------------------------------
