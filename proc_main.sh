@@ -33,6 +33,13 @@ do
       fi
 
       # Folder where ANTs is installed (all the way to .../bin)
+      VAL=$(gawk -F\=  '/^ANAT_PIPE/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
+      if [[ ! -z "${VAL}" ]]; then
+          ANAT_PIPE=${VAL}
+      fi
+
+
+      # Folder where ANTs is installed (all the way to .../bin)
       VAL=$(gawk -F\=  '/^ABIN/{print $2}' "${CONFIG}" | cut -d'#' -f1 |  sed -e 's/[[:space:]]*$//')
       if [[ ! -z "${VAL}" ]]; then
           ABIN=${VAL}
@@ -380,7 +387,7 @@ nlm_smooth()
 
       {
           # -r 3x3x2 -p 2x2x1
-          ${ABIN}/DenoiseImage -x ${MASK} -r 3x3x2 -p 2x2x1 -n Rician -i ${OUTDIR}/tmp/tmp_data.${FI}.nii  -o [ ${OUTDIR}/tmp/tmp_data_n.${FI}.nii ]
+          ${ABIN}/DenoiseImage -x ${MASK} -r 3 -p 1 -n Rician -i ${OUTDIR}/tmp/tmp_data.${FI}.nii  -o [ ${OUTDIR}/tmp/tmp_data_n.${FI}.nii ]
 
       } &> /dev/null
 
@@ -987,8 +994,8 @@ fi
 # TODO Add the possibility to import this from somewhere
 # This would be useful when there are multiple functional blocks (no need process anatomical and register to MNI again in those cases)
 
-# Calculate WARP to group template
-
+# Initial clean up
+export ANTSPATH=${ABIN}
 
 
 if [ "$DO_ANAT" -eq "1" ]; then
@@ -1039,226 +1046,395 @@ if [ "$DO_ANAT" -eq "1" ]; then
                 #ANAT
                 ${ABIN}/N4BiasFieldCorrection -i ${ANATDIR}/anat.nii -s 3  -o [ ${ANATDIR}/anat_b.nii ]
 
-                # CAT12 segmentation calculates tissue maps (also for DARTEL)
-                $MATLABBIN "-nodesktop -nosplash " <<<"cd './matlab'; cat12_segmentation_proc('${ANATDIR}'); exit;"
+                    if [ "${ANAT_PIPE}" -eq "1" ]; then
+                        # CAT12 segmentation calculates tissue maps (also for DARTEL)
+                        $MATLABBIN "-nodesktop -nosplash " <<<"cd './matlab'; cat12_segmentation_proc('${ANATDIR}'); exit;"
 
 
 
-                # Based on GM+WM tissues, creates a brain mask.
-                3dcalc -a ${ANATDIR}/wm_tpm_anat.nii -b ${ANATDIR}/gm_tpm_anat.nii  -expr 'astep(a+b, 0.05)' -prefix ${ANATDIR}/brain_mask.nii
-                3dinfill -prefix ${ANATDIR}/brain_mask_fill.nii  -input ${ANATDIR}/brain_mask.nii -blend SOLID
-                mv ${ANATDIR}/brain_mask_fill.nii  ${ANATDIR}/brain_mask.nii
+                        # Based on GM+WM tissues, creates a brain mask.
+                        3dcalc -a ${ANATDIR}/wm_tpm_anat.nii -b ${ANATDIR}/gm_tpm_anat.nii  -expr 'astep(a+b, 0.05)' -prefix ${ANATDIR}/brain_mask.nii
+                        3dinfill -prefix ${ANATDIR}/brain_mask_fill.nii  -input ${ANATDIR}/brain_mask.nii -blend SOLID
+                        mv ${ANATDIR}/brain_mask_fill.nii  ${ANATDIR}/brain_mask.nii
 
-                # Ensures everything is still oriented as they should.....
-                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/brain_mask.nii
-                mv ${ANATDIR}/tmp.nii ${ANATDIR}/brain_mask.nii
+                        # Ensures everything is still oriented as they should.....
+                        3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/brain_mask.nii
+                        mv ${ANATDIR}/tmp.nii ${ANATDIR}/brain_mask.nii
 
-                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/wm_tpm_anat.nii
-                mv ${ANATDIR}/tmp.nii ${ANATDIR}/wm_tpm_anat.nii
+                        3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/wm_tpm_anat.nii
+                        mv ${ANATDIR}/tmp.nii ${ANATDIR}/wm_tpm_anat.nii
 
-                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/gm_tpm_anat.nii
-                mv ${ANATDIR}/tmp.nii ${ANATDIR}/gm_tpm_anat.nii
+                        3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/gm_tpm_anat.nii
+                        mv ${ANATDIR}/tmp.nii ${ANATDIR}/gm_tpm_anat.nii
 
-                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/csf_tpm_anat.nii
-                mv ${ANATDIR}/tmp.nii ${ANATDIR}/csf_tpm_anat.nii
+                        3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/csf_tpm_anat.nii
+                        mv ${ANATDIR}/tmp.nii ${ANATDIR}/csf_tpm_anat.nii
 
-                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/mri/rp1anat_rigid.nii
-                mv ${ANATDIR}/tmp.nii ${ANATDIR}/mri/rp1anat_rigid.nii
+                        3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/mri/rp1anat_rigid.nii
+                        mv ${ANATDIR}/tmp.nii ${ANATDIR}/mri/rp1anat_rigid.nii
 
-                3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/mri/rp2anat_rigid.nii
-                mv ${ANATDIR}/tmp.nii ${ANATDIR}/mri/rp2anat_rigid.nii
-
-
-
-                copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/brain_mask.nii
-                copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/wm_tpm_anat.nii
-                copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/gm_tpm_anat.nii
-                copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/csf_tpm_anat.nii
+                        3dresample -prefix ${ANATDIR}/tmp.nii -orient ras -input ${ANATDIR}/mri/rp2anat_rigid.nii
+                        mv ${ANATDIR}/tmp.nii ${ANATDIR}/mri/rp2anat_rigid.nii
 
 
 
-                ${ABIN}/DenoiseImage -v -i ${ANATDIR}/anat_b.nii -p 1x1x1 -r 4x4x4 -n Rician -x ${ANATDIR}/brain_mask.nii -o [ ${ANATDIR}/anat_wbn.nii ]
+                        copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/brain_mask.nii
+                        copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/wm_tpm_anat.nii
+                        copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/gm_tpm_anat.nii
+                        copy_header ${ANATDIR}/anat_b.nii ${ANATDIR}/csf_tpm_anat.nii
+
+
+
+                        ${ABIN}/DenoiseImage -v -i ${ANATDIR}/anat_b.nii -p 1x1x1 -r 4x4x4 -n Rician -x ${ANATDIR}/brain_mask.nii -o [ ${ANATDIR}/anat_wbn.nii ]
+
+                        rm -f ${ANATDIR}/anat_proc_brain.nii
+                        rm -f ${ANATDIR}/anat_proc.nii
+
+                        3dcalc -a ${ANATDIR}/anat_wbn.nii -b ${ANATDIR}/brain_mask.nii -expr 'a*b' -prefix ${ANATDIR}/anat_proc_brain.nii
+                        mv ${ANATDIR}/anat_wbn.nii ${ANATDIR}/anat_proc.nii
+
+                        rm -f ${ANATDIR}/anat.nii
+                        rm -f ${ANATDIR}/anat_proc_s.nii
+                        rm -f ${ANATDIR}/anat_proc_s2.nii
+
+
+                        # ALIGN anatomical to functional, but on the same space
+                        REF=${ANATDIR}/anat_proc_brain.nii
+                        SRC=${ANATDIR}/mean_func_data_nds.nii
+
+
+                        ${ABIN}/antsRegistration -d 3 -r [$REF,$SRC,1] -v 1 \
+                                    -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t translation[0.1] -c [500,1.e-8,20] \
+                                    -s 6vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
+                                    -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t rigid[0.1] -c [500,1.e-8,20] \
+                                    -s 6vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
+                                    -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t affine[0.1] -c [250,1.e-8,20] \
+                                    -s 4vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
+                                    -o [${ANATDIR}/anat_proc_a,${ANATDIR}/anat_proc_a.nii]
+
+                        # MIGHT not be needed
+                        fslorient -copyqform2sform ${ANATDIR}/anat_proc_a.nii
+
+                        # In some datasets, ANTs fail to get center and orientation correctly
+                        # when applying the transformations
+                        # The images generated here makes sure everything is in order
+                        #SX=`3dinfo -adi ${ANATDIR}/anat_proc_brain.nii`
+                        #SY=`3dinfo -adj ${ANATDIR}/anat_proc_brain.nii`
+                        #SZ=`3dinfo -adk ${ANATDIR}/anat_proc_brain.nii`
+                        INFO=`fslinfo ${ANATDIR}/anat_proc_brain.nii`
+
+                        SX=`sed -n 7p <<< "$INFO"`
+                        SX=`echo $SX | gawk -F ' ' '{print $2}'`
+
+                        SY=`sed -n 8p <<< "$INFO"`
+                        SY=`echo $SY | gawk -F ' ' '{print $2}'`
+
+                        SZ=`sed -n 9p <<< "$INFO"`
+                        SZ=`echo $SZ | gawk -F ' ' '{print $2}'`
+                        3dresample -prefix ${ANATDIR}/mean_func_data_nds_hi.nii -input ${ANATDIR}/mean_func_data_nds.nii -dxyz ${SX} ${SY} ${SZ}
+
+                        #For DARTEL images
+                        #SX=`3dinfo -adi ${ANATDIR}/mri/rp1anat_affine.nii`
+                        #SY=`3dinfo -adj ${ANATDIR}/mri/rp1anat_affine.nii`
+                        #SZ=`3dinfo -adk ${ANATDIR}/mri/rp1anat_affine.nii`
+
+                        INFO=`fslinfo ${ANATDIR}/mri/rp1anat_rigid.nii`
+
+                        SX=`sed -n 7p <<< "$INFO"`
+                        SX=`echo $SX | gawk -F ' ' '{print $2}'`
+
+                        SY=`sed -n 8p <<< "$INFO"`
+                        SY=`echo $SY | gawk -F ' ' '{print $2}'`
+
+                        SZ=`sed -n 9p <<< "$INFO"`
+                        SZ=`echo $SZ | gawk -F ' ' '{print $2}'`
+
+                        3dresample -prefix ${ANATDIR}/mean_func_data_nds_dartel.nii -input ${ANATDIR}/mean_func_data_nds.nii -dxyz ${SX} ${SY} ${SZ}
+
+
+                        ${ABIN}/antsApplyTransforms \
+                              -i ${ANATDIR}/anat_proc_brain.nii \
+                              --float \
+                              -r ${ANATDIR}/mean_func_data_nds_hi.nii \
+                              -o ${ANATDIR}/anat_proc_a2.nii \
+                              -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                              -n BSpline
+
+
+                        ${ABIN}/antsApplyTransforms \
+                              -i ${ANATDIR}/gm_tpm_anat.nii \
+                              --float \
+                              -r ${ANATDIR}/mean_func_data_nds_hi.nii \
+                              -o ${ANATDIR}/gm_tpm_anat_a.nii \
+                              -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                              -n BSpline
+
+
+                        ${ABIN}/antsApplyTransforms \
+                              -i ${ANATDIR}/wm_tpm_anat.nii \
+                               --float \
+                               -r ${ANATDIR}/mean_func_data_nds_hi.nii \
+                               -o ${ANATDIR}/wm_tpm_anat_a.nii \
+                               -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                               -n BSpline
+
+                         ${ABIN}/antsApplyTransforms \
+                               -i ${ANATDIR}/csf_tpm_anat.nii \
+                               --float \
+                               -r ${ANATDIR}/mean_func_data_nds_hi.nii \
+                               -o ${ANATDIR}/csf_tpm_anat_a.nii \
+                               -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                               -n BSpline
+
+
+                         ${ABIN}/antsApplyTransforms \
+                               -i ${ANATDIR}/anat_proc.nii \
+                               --float \
+                               -r ${ANATDIR}/mean_func_data_nds_hi.nii \
+                               -o ${ANATDIR}/anat_proc_a3.nii \
+                               -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                               -n BSpline
+
+                          ${ABIN}/antsApplyTransforms \
+                                -i ${ANATDIR}/mri/rp1anat_rigid.nii \
+                                --float \
+                                -r ${ANATDIR}/mean_func_data_nds_dartel.nii \
+                                -o ${ANATDIR}/mri/rp1anat_rigid_a.nii \
+                                -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                                -n BSpline
+
+                          ${ABIN}/antsApplyTransforms \
+                                -i ${ANATDIR}/mri/rp2anat_rigid.nii \
+                                --float \
+                                -r ${ANATDIR}/mean_func_data_nds_dartel.nii \
+                                -o ${ANATDIR}/mri/rp2anat_rigid_a.nii \
+                                -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
+                                -n BSpline
+
+
+
+                        rm -f ${ANATDIR}/anat_proc_s.nii
+
+                        mv ${ANATDIR}/anat_proc_a2.nii ${ANATDIR}/anat_proc_brain.nii
+                        mv ${ANATDIR}/anat_proc_a3.nii ${ANATDIR}/anat_proc.nii
+
+                        mv ${ANATDIR}/csf_tpm_anat_a.nii ${ANATDIR}/csf_tpm_anat.nii
+                        mv ${ANATDIR}/wm_tpm_anat_a.nii ${ANATDIR}/wm_tpm_anat.nii
+                        mv ${ANATDIR}/gm_tpm_anat_a.nii ${ANATDIR}/gm_tpm_anat.nii
+
+                        mv ${ANATDIR}/mri/rp1anat_rigid_a.nii ${ANATDIR}/mri/rc1anat_rigid.nii
+                        mv ${ANATDIR}/mri/rp2anat_rigid_a.nii ${ANATDIR}/mri/rc2anat_rigid.nii
+
+                        # Delete values < 0 from interpolation
+                        TMPFILES=(anat_proc_brain anat_proc csf_tpm_anat \
+                            wm_tpm_anat gm_tpm_anat mri/rc1anat_rigid \
+                            mri/rc2anat_rigid )
+
+                        for F in ${TMPFILE[@]};
+                        do
+                            FNAME=${ANATDIR}/${F}.nii
+
+                            fslmaths ${FNAME} -thrP 5  ${ANATDIR}/tmp.nii
+                            gunzip -f ${ANATDIR}/tmp.nii.gz
+                            mv ${ANATDIR}/tmp.nii ${FNAME}
+                        done
+
+                        rm -f ${ANATDIR}/anat_proc_a.nii
+
+
+                        # Co-register functional to anatomical
+                        $MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${OUTDIR}/proc_data_native.nii'}, {${NVOLS}}, '${ANATDIR}/anat_proc_brain.nii', [1 0 0], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5]); exit;"
+                        copy_header ${ANATDIR}/anat_proc_brain.nii ${ANATDIR}/anat_proc.nii
+                        cp ${ANATDIR}/mri/rp1anat_rigid.nii ${ANATDIR}/rc1anat_proc_dartel.nii
+                        cp ${ANATDIR}/mri/rp2anat_rigid.nii ${ANATDIR}/rc2anat_proc_dartel.nii
+                        $MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; reslice_images('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/anat_proc.nii', '${ANATDIR}/anat_proc_brain.nii', '${ANATDIR}/gm_tpm_anat.nii', '${ANATDIR}/wm_tpm_anat.nii', '${ANATDIR}/csf_tpm_anat.nii', '${ANATDIR}/brain_mask.nii'}); exit;"
+
+                        mv ${ANATDIR}/ranat_proc.nii ${ANATDIR}/anat_native.nii
+                        mv ${ANATDIR}/ranat_proc_brain.nii ${ANATDIR}/anat_native_brain.nii
+
+                        mv ${ANATDIR}/rgm_tpm_anat.nii ${ANATDIR}/gm_tpm_native.nii
+                        mv ${ANATDIR}/rwm_tpm_anat.nii ${ANATDIR}/wm_tpm_native.nii
+                        mv ${ANATDIR}/rcsf_tpm_anat.nii ${ANATDIR}/csf_tpm_native.nii
+
+                        mv ${ANATDIR}/rbrain_mask.nii ${ANATDIR}/nat_mask_tpm.nii
+                      else
+#WHERE IS umeanfunc
+
+                        #rm -f ${ANATDIR}/anat_mask.nii
+                        #rm -f ${ANATDIR}/anat_brain_masked.nii
+                        #rm -f ${ANATDIR}/anat_brain_masked_u.nii
+                        #rm -f ${ANATDIR}/anat_brain_masked_us.nii
+
+                        rm -f ${ANATDIR}/anat_bb_masked.nii
+                        rm -f ${ANATDIR}/anat_bs_masked.nii
+
+
+
+                        cp ${GROUPDIR}/Group_T1_Avg_Brain.nii ${ANATDIR}/AGroupBrain.nii
+
+                        # Works well
+                        3dSkullStrip -input ${ANATDIR}/anat_b.nii -prefix ${ANATDIR}/anat_mask.nii \
+                                  -surface_coil -avoid_vent -avoid_vent -init_radius 75 -mask_vol
+
+                        3dcalc -a ${ANATDIR}/anat_mask.nii -b ${ANATDIR}/anat_b.nii \
+                                -expr "astep(a, 3)*b"
+
+
+
+                        # Copy the program below to the FSL bin folder
+                        # This could be useful in subjects who moved during T1
+                        unring.a64 ${ANATDIR}/anat_b.nii ${ANATDIR}/anat_bu.nii
+                        gunzip -f ${ANATDIR}/anat_bu.nii.gz
+                        rm -f ${ANATDIR}/anat_bu.nii.gz
+
+                        ${ABIN}/DenoiseImage -x ${ANATDIR}/anat_mask.nii \
+                              -n Rician -i ${ANATDIR}/anat_bu.nii  -o [ ${ANATDIR}/anat_bus.nii ]
+
+
+                        $MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; segmentation_spm('${ANATDIR}/anat_bus.nii'); exit;"
+
+
+
+                        rm -f ${ANATDIR}/anat_mask_tpm.nii
+                        rm -rf  ${ANATDIR}/anat_busm.nii
+                        3dcalc -a ${ANATDIR}/c1anat_bus.nii \
+                        -b ${ANATDIR}/c2anat_bus.nii \
+                        -c ${ANATDIR}/c3anat_bus.nii \
+                         -expr "astep((a+b+c), 0.1)" -prefix ${ANATDIR}/anat_mask_tpm.nii
+                        copy_header ${ANATDIR}/anat_bus.nii ${ANATDIR}/anat_mask_tpm.nii
+                        3dcalc -a ${ANATDIR}/anat_bus.nii -b ${ANATDIR}/anat_mask_tpm.nii \
+                                -expr "a*b" -prefix  ${ANATDIR}/anat_busm.nii
+                        #exit 0
+
+
+                        rm -rf ${ANATDIR}/anat_busm_ants.nii
+                        rm -rf  ${ANATDIR}/anat_busmn.nii
+                        rm -rf  ${ANATDIR}/mean_func_data_ndsm.nii
+
+
+
+                        MAXT1=`3dinfo -max ${ANATDIR}/anat_bus.nii`
+                        MAXFN=`3dinfo -max ${ANATDIR}/mean_func_data_nds.nii`
+
+                        3dcalc -a ${ANATDIR}/anat_busm.nii -datum float -expr "a/${MAXT1}" -prefix ${ANATDIR}/anat_busmn.nii
+                        3dcalc -a ${ANATDIR}/mean_func_data_nds.nii -datum float -expr "a/${MAXFN}" -prefix ${ANATDIR}/mean_func_data_ndsm.nii
+                        rm -rf ${ANATDIR}/mean_func_data_ndsm_mask.nii
+                        3dcalc -a ${ANATDIR}/mean_func_data_ndsm.nii -expr "astep(a,0.1)" -prefix ${ANATDIR}/mean_func_data_ndsm_mask.nii
+                        copy_header ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/mean_func_data_ndsm.nii
+                        copy_header ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/mean_func_data_ndsm_mask.nii
+                        rm -f ${ANATDIR}/anat_busmn_ants.nii
+                        3dcalc -a ${ANATDIR}/anat_busmn.nii -b ${ANATDIR}/c3anat_bus.nii \
+                        -c ${ANATDIR}/c2anat_bus.nii \
+                        -d ${ANATDIR}/c1anat_bus.nii \
+                                -expr "(1-a)*b + ((1-a)*c)*0.75 + a*d" -prefix  ${ANATDIR}/anat_busmn_ants.nii
+                        copy_header ${ANATDIR}/anat_bus.nii ${ANATDIR}/anat_busmn_ants.nii
+                        #exit 0
+                        REF=${ANATDIR}/mean_func_data_ndsm.nii
+                        SRC=${ANATDIR}/anat_busmn_ants.nii
+                        #${ABIN}/antsRegistration
+                        #exit 0
+                        ${ABIN}/antsRegistration -d 3 -r [$REF,$SRC,1] -v 1 \
+                                    -m MI[$REF,$SRC,1,128] -t translation[0.2] -c [500x250,1.e-8,20] \
+                                    -s 3x4vox -f 3x2 -l 1 -n BSpline \
+                                    -m MI[$REF,$SRC,1,128,Regular,0.5] -t rigid[0.1] -c [500x250,1.e-8,20] \
+                                    -s 3x2vox -f 3x2 -l 1 -n BSpline \
+                                    -o [${ANATDIR}/anat2native,${ANATDIR}/anat2native.nii]
+
+                        cp ${ANATDIR}/c1anat_bus.nii ${ANATDIR}/gm_tpm_anat.nii
+                        copy_header ${ANATDIR}/anat_bus.nii ${ANATDIR}/gm_tpm_anat.nii
+
+                        cp ${ANATDIR}/c2anat_bus.nii ${ANATDIR}/wm_tpm_anat.nii
+                        copy_header ${ANATDIR}/anat_bus.nii ${ANATDIR}/wm_tpm_anat.nii
+
+                        cp ${ANATDIR}/c3anat_bus.nii ${ANATDIR}/csf_tpm_anat.nii
+                        copy_header ${ANATDIR}/anat_bus.nii ${ANATDIR}/csf_tpm_anat.nii
+
+                        ${ABIN}/antsApplyTransforms \
+                              -i ${ANATDIR}/c1anat_bus.nii \
+                              --float \
+                              -r ${REF} \
+                              -o ${ANATDIR}/gm_tpm_anat.nii \
+                              -t [${ANATDIR}/anat2native0GenericAffine.mat,0] \
+                              -n Linear
+                        ${ABIN}/antsApplyTransforms \
+                              -i ${ANATDIR}/c2anat_bus.nii \
+                              --float \
+                              -r ${REF} \
+                              -o ${ANATDIR}/wm_tpm_anat.nii \
+                              -t [${ANATDIR}/anat2native0GenericAffine.mat,0] \
+                              -n Linear
+
+                        ${ABIN}/antsApplyTransforms \
+                              -i ${ANATDIR}/c3anat_bus.nii \
+                              --float \
+                              -r ${REF} \
+                              -o ${ANATDIR}/csf_tpm_anat.nii \
+                              -t [${ANATDIR}/anat2native0GenericAffine.mat,0] \
+                              -n Linear
+
+                      ${ABIN}/antsApplyTransforms \
+                            -i ${ANATDIR}/anat_bus.nii \
+                            --float \
+                            -r ${REF} \
+                            -o ${ANATDIR}/anat_native.nii \
+                            -t [${ANATDIR}/anat2native0GenericAffine.mat,0] \
+                            -n Linear
+
+                      ${ABIN}/antsApplyTransforms \
+                            -i ${ANATDIR}/anat_busm.nii \
+                            --float \
+                            -r ${REF} \
+                            -o ${ANATDIR}/anat_native_brain.nii \
+                            -t [${ANATDIR}/anat2native0GenericAffine.mat,0] \
+                            -n Linear
+
+
+
+                          cp ${ANATDIR}/anat_bus.nii ${ANATDIR}/anat_proc.nii
+                          cp ${ANATDIR}/anat_busm.nii ${ANATDIR}/anat_proc_brain.nii
+                          cp ${ANATDIR}/anat_mask_tpm.nii ${ANATDIR}/brain_mask.nii
+
+                          cp ${ANATDIR}/rc1anat_bus.nii ${ANATDIR}/rc1anat_proc_dartel.nii
+                          cp ${ANATDIR}/rc2anat_bus.nii ${ANATDIR}/rc2anat_proc_dartel.nii
+
+                          INFO=`fslinfo ${ANATDIR}/rc1anat_bus.nii`
+
+                          SX=`sed -n 7p <<< "$INFO"`
+                          SX=`echo $SX | gawk -F ' ' '{print $2}'`
+
+                          SY=`sed -n 8p <<< "$INFO"`
+                          SY=`echo $SY | gawk -F ' ' '{print $2}'`
+
+                          SZ=`sed -n 9p <<< "$INFO"`
+                          SZ=`echo $SZ | gawk -F ' ' '{print $2}'`
+
+                          3dresample -prefix ${ANATDIR}/mean_func_data_nds_dartel.nii -input ${ANATDIR}/mean_func_data_nds.nii -dxyz ${SX} ${SY} ${SZ}
+
+                      fi
                 fi
 
 
-                rm -f ${ANATDIR}/anat_proc_brain.nii
-                rm -f ${ANATDIR}/anat_proc.nii
 
-                3dcalc -a ${ANATDIR}/anat_wbn.nii -b ${ANATDIR}/brain_mask.nii -expr 'a*b' -prefix ${ANATDIR}/anat_proc_brain.nii
-                mv ${ANATDIR}/anat_wbn.nii ${ANATDIR}/anat_proc.nii
-
-                rm -f ${ANATDIR}/anat.nii
-                rm -f ${ANATDIR}/anat_proc_s.nii
-                rm -f ${ANATDIR}/anat_proc_s2.nii
-
-
-                # ALIGN anatomical to functional, but on the same space
-                REF=${ANATDIR}/anat_proc_brain.nii
-                SRC=${ANATDIR}/mean_func_data_nds.nii
-
-
-                ${ABIN}/antsRegistration -d 3 -r [$REF,$SRC,1] -v 1 \
-                            -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t translation[0.1] -c [500,1.e-8,20] \
-                            -s 6vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
-                            -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t rigid[0.1] -c [500,1.e-8,20] \
-                            -s 6vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
-                            -m MI[$REF,$SRC,0.25,128] -m MeanSquares[$REF,$SRC,0.75,128] -t affine[0.1] -c [250,1.e-8,20] \
-                            -s 4vox -f 3 -l 1 -n BSpline -w [0.1,0.95] \
-                            -o [${ANATDIR}/anat_proc_a,${ANATDIR}/anat_proc_a.nii]
-
-                # MIGHT not be needed
-                fslorient -copyqform2sform ${ANATDIR}/anat_proc_a.nii
-
-                # In some datasets, ANTs fail to get center and orientation correctly
-                # when applying the transformations
-                # The images generated here makes sure everything is in order
-                #SX=`3dinfo -adi ${ANATDIR}/anat_proc_brain.nii`
-                #SY=`3dinfo -adj ${ANATDIR}/anat_proc_brain.nii`
-                #SZ=`3dinfo -adk ${ANATDIR}/anat_proc_brain.nii`
-                INFO=`fslinfo ${ANATDIR}/anat_proc_brain.nii`
-
-                SX=`sed -n 7p <<< "$INFO"`
-                SX=`echo $SX | gawk -F ' ' '{print $2}'`
-
-                SY=`sed -n 8p <<< "$INFO"`
-                SY=`echo $SY | gawk -F ' ' '{print $2}'`
-
-                SZ=`sed -n 9p <<< "$INFO"`
-                SZ=`echo $SZ | gawk -F ' ' '{print $2}'`
-                3dresample -prefix ${ANATDIR}/mean_func_data_nds_hi.nii -input ${ANATDIR}/mean_func_data_nds.nii -dxyz ${SX} ${SY} ${SZ}
-
-                #For DARTEL images
-                #SX=`3dinfo -adi ${ANATDIR}/mri/rp1anat_affine.nii`
-                #SY=`3dinfo -adj ${ANATDIR}/mri/rp1anat_affine.nii`
-                #SZ=`3dinfo -adk ${ANATDIR}/mri/rp1anat_affine.nii`
-
-                INFO=`fslinfo ${ANATDIR}/mri/rp1anat_rigid.nii`
-
-                SX=`sed -n 7p <<< "$INFO"`
-                SX=`echo $SX | gawk -F ' ' '{print $2}'`
-
-                SY=`sed -n 8p <<< "$INFO"`
-                SY=`echo $SY | gawk -F ' ' '{print $2}'`
-
-                SZ=`sed -n 9p <<< "$INFO"`
-                SZ=`echo $SZ | gawk -F ' ' '{print $2}'`
-
-                3dresample -prefix ${ANATDIR}/mean_func_data_nds_dartel.nii -input ${ANATDIR}/mean_func_data_nds.nii -dxyz ${SX} ${SY} ${SZ}
-
-
-                ${ABIN}/antsApplyTransforms \
-                      -i ${ANATDIR}/anat_proc_brain.nii \
-                      --float \
-                      -r ${ANATDIR}/mean_func_data_nds_hi.nii \
-                      -o ${ANATDIR}/anat_proc_a2.nii \
-                      -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                      -n BSpline
-
-
-                ${ABIN}/antsApplyTransforms \
-                      -i ${ANATDIR}/gm_tpm_anat.nii \
-                      --float \
-                      -r ${ANATDIR}/mean_func_data_nds_hi.nii \
-                      -o ${ANATDIR}/gm_tpm_anat_a.nii \
-                      -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                      -n BSpline
-
-
-                ${ABIN}/antsApplyTransforms \
-                      -i ${ANATDIR}/wm_tpm_anat.nii \
-                       --float \
-                       -r ${ANATDIR}/mean_func_data_nds_hi.nii \
-                       -o ${ANATDIR}/wm_tpm_anat_a.nii \
-                       -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                       -n BSpline
-
-                 ${ABIN}/antsApplyTransforms \
-                       -i ${ANATDIR}/csf_tpm_anat.nii \
-                       --float \
-                       -r ${ANATDIR}/mean_func_data_nds_hi.nii \
-                       -o ${ANATDIR}/csf_tpm_anat_a.nii \
-                       -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                       -n BSpline
-
-
-                 ${ABIN}/antsApplyTransforms \
-                       -i ${ANATDIR}/anat_proc.nii \
-                       --float \
-                       -r ${ANATDIR}/mean_func_data_nds_hi.nii \
-                       -o ${ANATDIR}/anat_proc_a3.nii \
-                       -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                       -n BSpline
-
-                  ${ABIN}/antsApplyTransforms \
-                        -i ${ANATDIR}/mri/rp1anat_rigid.nii \
-                        --float \
-                        -r ${ANATDIR}/mean_func_data_nds_dartel.nii \
-                        -o ${ANATDIR}/mri/rp1anat_rigid_a.nii \
-                        -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                        -n BSpline
-
-                  ${ABIN}/antsApplyTransforms \
-                        -i ${ANATDIR}/mri/rp2anat_rigid.nii \
-                        --float \
-                        -r ${ANATDIR}/mean_func_data_nds_dartel.nii \
-                        -o ${ANATDIR}/mri/rp2anat_rigid_a.nii \
-                        -t [${ANATDIR}/anat_proc_a0GenericAffine.mat,1] \
-                        -n BSpline
-
-
-
-                rm -f ${ANATDIR}/anat_proc_s.nii
-
-                mv ${ANATDIR}/anat_proc_a2.nii ${ANATDIR}/anat_proc_brain.nii
-                mv ${ANATDIR}/anat_proc_a3.nii ${ANATDIR}/anat_proc.nii
-
-                mv ${ANATDIR}/csf_tpm_anat_a.nii ${ANATDIR}/csf_tpm_anat.nii
-                mv ${ANATDIR}/wm_tpm_anat_a.nii ${ANATDIR}/wm_tpm_anat.nii
-                mv ${ANATDIR}/gm_tpm_anat_a.nii ${ANATDIR}/gm_tpm_anat.nii
-
-                mv ${ANATDIR}/mri/rp1anat_rigid_a.nii ${ANATDIR}/mri/rc1anat_rigid.nii
-                mv ${ANATDIR}/mri/rp2anat_rigid_a.nii ${ANATDIR}/mri/rc2anat_rigid.nii
-
-                # Delete values < 0 from interpolation
-                TMPFILES=(anat_proc_brain anat_proc csf_tpm_anat \
-                    wm_tpm_anat gm_tpm_anat mri/rc1anat_rigid \
-                    mri/rc2anat_rigid )
-
-                for F in ${TMPFILE[@]};
-                do
-                    FNAME=${ANATDIR}/${F}.nii
-
-                    fslmaths ${FNAME} -thrP 5  ${ANATDIR}/tmp.nii
-                    gunzip -f ${ANATDIR}/tmp.nii.gz
-                    mv ${ANATDIR}/tmp.nii ${FNAME}
-                done
-
-                rm -f ${ANATDIR}/anat_proc_a.nii
-
-
-                # Co-register functional to anatomical
-                $MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/mean_func_data_nds.nii', {'${OUTDIR}/proc_data_native.nii'}, {${NVOLS}}, '${ANATDIR}/anat_proc_brain.nii', [1 0 0], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [5 5 5]); exit;"
-                copy_header ${ANATDIR}/anat_proc_brain.nii ${ANATDIR}/anat_proc.nii
           fi
           #rm -f ${ANATDIR}/anat_native.nii
 
-          cp ${ANATDIR}/mri/rp1anat_rigid.nii ${ANATDIR}/rc1anat_proc_dartel.nii
-          cp ${ANATDIR}/mri/rp2anat_rigid.nii ${ANATDIR}/rc2anat_proc_dartel.nii
+          #cp ${ANATDIR}/mri/rp1anat_rigid.nii ${ANATDIR}/rc1anat_proc_dartel.nii
+          #cp ${ANATDIR}/mri/rp2anat_rigid.nii ${ANATDIR}/rc2anat_proc_dartel.nii
           #cp ${ANATDIR}/mri/rc1anat_affine.nii ${ANATDIR}/rc1anat_proc_dartel.nii
           #cp ${ANATDIR}/mri/rc2anat_affine.nii ${ANATDIR}/rc2anat_proc_dartel.nii
 
 
 
-          $MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; reslice_images('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/anat_proc.nii', '${ANATDIR}/anat_proc_brain.nii', '${ANATDIR}/gm_tpm_anat.nii', '${ANATDIR}/wm_tpm_anat.nii', '${ANATDIR}/csf_tpm_anat.nii', '${ANATDIR}/brain_mask.nii'}); exit;"
+          #$MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; reslice_images('${ANATDIR}/mean_func_data_nds.nii', {'${ANATDIR}/anat_proc.nii', '${ANATDIR}/anat_proc_brain.nii', '${ANATDIR}/gm_tpm_anat.nii', '${ANATDIR}/wm_tpm_anat.nii', '${ANATDIR}/csf_tpm_anat.nii', '${ANATDIR}/brain_mask.nii'}); exit;"
 
-          mv ${ANATDIR}/ranat_proc.nii ${ANATDIR}/anat_native.nii
-          mv ${ANATDIR}/ranat_proc_brain.nii ${ANATDIR}/anat_native_brain.nii
+          #mv ${ANATDIR}/ranat_proc.nii ${ANATDIR}/anat_native.nii
+          #mv ${ANATDIR}/ranat_proc_brain.nii ${ANATDIR}/anat_native_brain.nii
 
-          mv ${ANATDIR}/rgm_tpm_anat.nii ${ANATDIR}/gm_tpm_native.nii
-          mv ${ANATDIR}/rwm_tpm_anat.nii ${ANATDIR}/wm_tpm_native.nii
-          mv ${ANATDIR}/rcsf_tpm_anat.nii ${ANATDIR}/csf_tpm_native.nii
+          #mv ${ANATDIR}/rgm_tpm_anat.nii ${ANATDIR}/gm_tpm_native.nii
+          #mv ${ANATDIR}/rwm_tpm_anat.nii ${ANATDIR}/wm_tpm_native.nii
+          #mv ${ANATDIR}/rcsf_tpm_anat.nii ${ANATDIR}/csf_tpm_native.nii
 
-          mv ${ANATDIR}/rbrain_mask.nii ${ANATDIR}/nat_mask_tpm.nii
+          #mv ${ANATDIR}/rbrain_mask.nii ${ANATDIR}/nat_mask_tpm.nii
 
           3dTcat -prefix ${OUTDIR}/example_func.nii ${OUTDIR}/proc_data_native.nii[0]
           3dAutomask -prefix ${OUTDIR}/nat_mask_tpm.nii  ${ANATDIR}/mean_func_data_nds.nii
@@ -1273,12 +1449,12 @@ if [ "$DO_ANAT" -eq "1" ]; then
 
           # Those steps below are only necessary for ICA and FIX stuff, otherwise
           # there are some alignment problems
-          flirt -in ${ANATDIR}/anat_native.nii -ref ${ANATDIR}/anat_proc.nii -omat ${ANATDIR}/func2anat_fsl.mat -out ${ANATDIR}/anat_native_fsl \
+          flirt -in ${ANATDIR}/anat_native_brain.nii -ref ${ANATDIR}/anat_proc_brain.nii -omat ${ANATDIR}/func2anat_fsl.mat -out ${ANATDIR}/anat_native_fsl \
                -usesqform -dof 6 -coarsesearch 18 -finesearch 9 -searchrx -20 20 -searchry -20 20 -searchrz -20 20
 
 
           convert_xfm -omat ${ANATDIR}/anat2func_fsl.mat -inverse ${ANATDIR}/func2anat_fsl.mat
-          flirt -applyxfm -init ${ANATDIR}/anat2func_fsl.mat -in ${ANATDIR}/anat_proc.nii -out ${ANATDIR}/anat_native_fsl_func.nii.gz -ref ${ANATDIR}/mean_func_data_nds.nii
+          flirt -applyxfm -init ${ANATDIR}/anat2func_fsl.mat -in ${ANATDIR}/anat_proc_brain.nii -out ${ANATDIR}/anat_native_fsl_func.nii.gz -ref ${ANATDIR}/mean_func_data_nds.nii
 
           gunzip -f ${ANATDIR}/anat_native_fsl_func.nii.gz
           copy_header ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/anat_native_fsl_func.nii
@@ -1467,7 +1643,7 @@ if [ "$DO_ICA" -eq "1" ]; then
             NVOLS=`fslnvols ${OUTDIR}/func_data.nii`
             NZ=`3dinfo -nk ${OUTDIR}/func_data.nii`
 
-
+                  rm -f ${OUTDIR}/s_proc_data_native.nii
 
             3dAutomask -prefix ${OUTDIR}/nat_mask.nii ${OUTDIR}/proc_data_native.nii
 
@@ -1635,19 +1811,51 @@ if [ "$DO_ATLAS_TO_NATIVE" -eq "1" ]; then
       START=$(date -u +%s.%N)
 
     #  {
-            # Not sure why the WDIR is being lost
             WDIR=${WDIR_ORIG}
             cd "${WDIR}"
 
             rm -f ${ANATDIR}/lg400_cobra_group.nii
             rm -f ${ANATDIR}/yeo17cobra_group.nii
             rm -f ${ANATDIR}/template_group.nii
+            rm -f ${ANATDIR}/u_mean_func_data_nds.nii
 
-            # TODO Create a 4D map for the Mantini Maps
+
             cp ${GROUPDIR}/lg400_cobra_group.nii ${ANATDIR}/lg400_cobra_group.nii
             cp ${GROUPDIR}/yeo17cobra_group.nii ${ANATDIR}/yeo17cobra_group.nii
-
             cp ${GROUPDIR}/Group_T1_Avg_Brain.nii ${ANATDIR}/template_group.nii
+
+            MNI_REF=${ANATDIR}/anat_native.nii
+            SRC=${ANATDIR}/template_group.nii
+            ${ABIN}/antsRegistration -d 3 -r [$MNI_REF,$SRC,0] -v 1 \
+                        -m MI[$MNI_REF,$SRC,1,64] -t translation[0.2] -c [500x50,1.e-8,20] \
+                        -s 6x4vox -f 3x2 -l 1 -n BSpline \
+                        -m MI[$MNI_REF,$SRC,1,64,Regular,0.5] -t rigid[0.2] -c [500x50,1.e-8,20] \
+                        -s 6x4vox -f 3x2 -l 1 -n BSpline \
+                        -m MI[$MNI_REF,$SRC,1,64,Regular,0.5] -t affine[0.2] -c [500x200x200,1.e-8,10] \
+                        -s 6x6x4vox -f 4x3x2 -l 1 -n BSpline \
+                        -m CC[$MNI_REF,$SRC,1,3] -t SyN[0.2,3] -c [25x15x10,1.e-7,10] \
+                        -s 6x3x0vox -f 4x2x1 -l 1 -n BSpline \
+                        -o [${ANATDIR}/group2native,${ANATDIR}/group2native.nii]
+
+
+            ${ABIN}/antsApplyTransforms \
+                  -i ${ANATDIR}/lg400_cobra_group.nii \
+                  --float \
+                  -r ${ANATDIR}/mean_func_data_nds.nii \
+                  -o ${ANATDIR}/lg400_cobra_ant_native.nii \
+                  -t [${ANATDIR}/group2native1Warp.nii.gz,0] \
+                  -t [${ANATDIR}/group2native0GenericAffine.mat,0] \
+                  -n Linear
+
+            ${ABIN}/antsApplyTransforms \
+                  -i ${ANATDIR}/yeo17cobra_group.nii \
+                  --float \
+                  -r ${ANATDIR}/mean_func_data_nds.nii \
+                  -o ${ANATDIR}/yeo17cobra_ant_native.nii \
+                  -t [${ANATDIR}/group2native1Warp.nii.gz,0] \
+                  -t [${ANATDIR}/group2native0GenericAffine.mat,0] \
+                  -n Linear
+
 
             # Test if the Mantini et al. 2013 network definition will be used
             if test -f ${GROUPDIR}/cingulo_opercular_group.nii; then
@@ -1668,7 +1876,7 @@ if [ "$DO_ATLAS_TO_NATIVE" -eq "1" ]; then
             fi
 
             if ! test -f ${ANATDIR}/u_mean_func_data_nds.nii; then
-              cp ${ANATDIR}/mean_func_data_nds.nii ${ANATDIR}/u_mean_func_data_nds.nii
+              cp ${ANATDIR}/mean_func_data_nds_dartel.nii ${ANATDIR}/u_mean_func_data_nds.nii
             fi
 
             #cp -f ${ANATDIR}/mri/rc1anat_proc.nii ${ANATDIR}/rc1anat_proc_dartel.nii
@@ -1693,13 +1901,13 @@ if [ "$DO_ATLAS_TO_NATIVE" -eq "1" ]; then
 
               $MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; coreg_normalise('${ANATDIR}/u_mean_func_data_nds.nii', {'${ANATDIR}/lg400_cobra_group.nii', '${ANATDIR}/yeo17cobra_group.nii'}, 1, '${ANATDIR}/anat_proc.nii', [0 0 2], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0], 0); exit;"
             fi
-            #matlab "-nodesktop -nosplash " <<<"coreg_normalise('${ANATDIR}/u_mean_func_data_nds.nii', {'${ANATDIR}/mantini2013_group.nii'}, 14, '${ANATDIR}/anat_proc.nii', [0 0 2], {'${DARTEL_TEMPLATE_PREF}1.nii', '${DARTEL_TEMPLATE_PREF}2.nii', '${DARTEL_TEMPLATE_PREF}3.nii', '${DARTEL_TEMPLATE_PREF}4.nii', '${DARTEL_TEMPLATE_PREF}5.nii', '${DARTEL_TEMPLATE_PREF}6.nii'}, [0 0 0], 0); exit;"
-
 
 
 
             $MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; coreg_same_image('${ANATDIR}/u_mean_func_data_nds.nii', '${ANATDIR}/wlg400_cobra_group_u_rc1anat_proc_dartel.nii', '', 0); exit;"
             $MATLABBIN "-nodesktop -nosplash " <<<"cd ./matlab; coreg_same_image('${ANATDIR}/u_mean_func_data_nds.nii', '${ANATDIR}/wyeo17cobra_group_u_rc1anat_proc_dartel.nii', '', 0); exit;"
+
+
 
             if test -f ${GROUPDIR}/cingulo_opercular_group.nii; then
 

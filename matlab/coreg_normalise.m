@@ -222,7 +222,7 @@ if normalise(3) == 2
             matlabbatch{step}.spm.tools.dartel.warp1.settings.param(6).template = cellstr(templates{6});
             matlabbatch{step}.spm.tools.dartel.warp1.settings.optim.lmreg = 0.01;
             matlabbatch{step}.spm.tools.dartel.warp1.settings.optim.cyc = 3;
-            matlabbatch{step}.spm.tools.dartel.warp1.settings.optim.its = 3;
+            matlabbatch{step}.spm.tools.dartel.warp1.settings.optim.its = 5;
             step = step + 1;
       end
 

@@ -64,6 +64,8 @@ motParams(1:end,[1 2 3]) = rad2deg( motParams(:,[1 2 3]) );
 motParams(isnan(motParams)) = 0;
 
 
+
+
 dlmwrite(cat(2, tmpDir, filesep, 'motion_estimate.par'), motParams, 'delimiter', ' ', 'precision', '%.5f');
 
 fig = figure();

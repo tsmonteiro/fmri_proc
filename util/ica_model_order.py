@@ -53,7 +53,7 @@ elif np.mean(fd) > 0.25 or np.max(rp) > 3:
 #    thr = 0.125
 #    ev  = 90
 #else:
-thr = 0.175
+thr = 0.15
 ev  = 75
 
 
